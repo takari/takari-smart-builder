@@ -19,26 +19,6 @@ package io.takari.maven.builder.smart;
  * under the License.
  */
 
-import org.apache.maven.execution.MavenSession;
-import org.apache.maven.execution.ProjectDependencyGraph;
-import org.apache.maven.lifecycle.internal.BuildThreadFactory;
-import org.apache.maven.lifecycle.internal.LifecycleModuleBuilder;
-import org.apache.maven.lifecycle.internal.ProjectBuildList;
-import org.apache.maven.lifecycle.internal.ReactorBuildStatus;
-import org.apache.maven.lifecycle.internal.ReactorContext;
-import org.apache.maven.lifecycle.internal.TaskSegment;
-import org.apache.maven.lifecycle.internal.builder.Builder;
-import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
-import org.codehaus.plexus.logging.Logger;
-
-import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Ordering;
-
 import io.takari.maven.builder.smart.BuildMetrics.Timer;
 
 import java.util.ArrayList;
@@ -60,20 +40,47 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.execution.ProjectDependencyGraph;
+import org.apache.maven.lifecycle.internal.BuildThreadFactory;
+import org.apache.maven.lifecycle.internal.LifecycleModuleBuilder;
+import org.apache.maven.lifecycle.internal.ProjectBuildList;
+import org.apache.maven.lifecycle.internal.ReactorBuildStatus;
+import org.apache.maven.lifecycle.internal.ReactorContext;
+import org.apache.maven.lifecycle.internal.TaskSegment;
+import org.apache.maven.lifecycle.internal.builder.Builder;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
+
 /**
  * 
  * @author Brian Toal
  *
  */
+@Singleton
+@Named("smart")
 @Component(role = Builder.class, hint = "smart")
 public class SmartBuilder implements Builder {
-  @Requirement
-  private Logger logger;
 
-  @Requirement
-  private LifecycleModuleBuilder lifecycleModuleBuilder;
+  private final Logger logger = LoggerFactory.getLogger(SmartBuilder.class); 
+  
+  private final LifecycleModuleBuilder lifecycleModuleBuilder;
 
-  public SmartBuilder() {
+  @Inject
+  public SmartBuilder(LifecycleModuleBuilder lifecycleModuleBuilder) {
+    this.lifecycleModuleBuilder = lifecycleModuleBuilder;
   }
 
   private final ConcurrencyTracker executing = new ConcurrencyTracker();
@@ -285,7 +292,7 @@ public class SmartBuilder implements Builder {
 
   private void log(final String s) {
     if (System.getProperty("maven.profile") != null) {
-      logger.info("LTB : " + s);
+      logger.info("Smart Builder : " + s);
     }
   }
 

@@ -444,24 +444,24 @@ public class SmartBuilder implements Builder {
   private static class ProjectsBuildMetrics {
     private Map<MavenProject, BuildMetrics> projectsBuildMetrics = new HashMap<MavenProject, BuildMetrics>();
 
-    protected void newProject(final MavenProject project) {
+    protected synchronized void newProject(final MavenProject project) {
       projectsBuildMetrics.put(project, new BuildMetrics());
     }
 
-    public BuildMetrics getBuildMetrics(final MavenProject project) {
+    public synchronized BuildMetrics getBuildMetrics(final MavenProject project) {
       return projectsBuildMetrics.get(project);
     }
 
-    protected void start(final MavenProject project, final Timer timer) {
+    protected synchronized void start(final MavenProject project, final Timer timer) {
       projectsBuildMetrics.get(project).start(timer);
     }
 
-    protected long stop(final MavenProject project, final Timer timer) {
+    protected synchronized long stop(final MavenProject project, final Timer timer) {
       projectsBuildMetrics.get(project).stop(timer);
       return projectsBuildMetrics.get(project).getMetricElapsedTime(timer, TimeUnit.MILLISECONDS);
     }
 
-    public List<MavenProject> getProjectsSortedByWalltime() {
+    public synchronized List<MavenProject> getProjectsSortedByWalltime() {
       return Ordering.natural().onResultOf(Functions.forMap(projectsBuildMetrics)).sortedCopy(projectsBuildMetrics.keySet());
     }
   }

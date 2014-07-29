@@ -1,5 +1,6 @@
 package io.takari.maven.builder.smart;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -7,20 +8,19 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.base.Stopwatch;
 
 /**
- * Responsible for maintaining metrics related to a unit of work.  The unit of 
- * work can be characterized by total elapsed time it takes to complete the task.
- * This is called wall clock time.  Wall time can be further characterized by the
- * various by the time the unit of work spends in each state.  When the unit of 
- * work is started it's either in a running or waiting state.  Time corresponding 
- * to the running state is called service time, where time corresponding to the 
- * waiting state is called queue time.  Knowing how much time a unit of work spends 
- * in each state, provides insight in to the behavior of the build and where
- * opportunities to improve runtime performance are.
+ * Responsible for maintaining metrics related to a unit of work. The unit of work can be
+ * characterized by total elapsed time it takes to complete the task. This is called wall clock
+ * time. Wall time can be further characterized by the various by the time the unit of work spends
+ * in each state. When the unit of work is started it's either in a running or waiting state. Time
+ * corresponding to the running state is called service time, where time corresponding to the
+ * waiting state is called queue time. Knowing how much time a unit of work spends in each state,
+ * provides insight in to the behavior of the build and where opportunities to improve runtime
+ * performance are.
  * 
- * {@code BuildMetrics}'s provides the services to record time spent in the various
- * states and should be tied to a unit of work.  The {@link BuildMetrics#start} and 
- * {@link BuildMetrics#stop} services used with the corresponding {@code Timer} 
- * provide the capability to accumulate time towards the {@code Timer}.
+ * {@code BuildMetrics}'s provides the services to record time spent in the various states and
+ * should be tied to a unit of work. The {@link BuildMetrics#start} and {@link BuildMetrics#stop}
+ * services used with the corresponding {@code Timer} provide the capability to accumulate time
+ * towards the {@code Timer}.
  * 
  * @author Brian Toal
  *
@@ -30,18 +30,35 @@ public class BuildMetrics implements Comparable<BuildMetrics> {
     WALLTIME_MS, QUEUETIME_MS, SERVICETIME_MS
   }
 
-  private Map<Timer, Stopwatch> timers;
+  private static class ThreadSafeStopwatch {
+
+    private final Stopwatch stopwatch = new Stopwatch();
+
+    public synchronized void start() {
+      stopwatch.start();
+    }
+
+    public synchronized void stop() {
+      stopwatch.stop();
+    }
+
+    public synchronized long elapsed(TimeUnit desiredUnit) {
+      return stopwatch.elapsed(desiredUnit);
+    }
+
+  }
+
+  private final Map<Timer, ThreadSafeStopwatch> timers;
 
   /**
-   * Default constructor.  Creates a {@link Stopwatch} for each value
-   * in {@code Timer}.
+   * Default constructor. Creates a {@link Stopwatch} for each value in {@code Timer}.
    */
   public BuildMetrics() {
-    timers = new ConcurrentHashMap<Timer, Stopwatch>();
-
+    ConcurrentHashMap<Timer, ThreadSafeStopwatch> timers = new ConcurrentHashMap<>();
     for (Timer t : Timer.values()) {
-      timers.put(t, new Stopwatch());
+      timers.put(t, new ThreadSafeStopwatch());
     }
+    this.timers = Collections.unmodifiableMap(timers);
   }
 
   /**
@@ -70,7 +87,7 @@ public class BuildMetrics implements Comparable<BuildMetrics> {
    * @return elapsed time in {@code desiredUnit}
    */
   public long getMetricElapsedTime(Timer timer, TimeUnit desiredUnit) {
-    return timers.get(timer).elapsedTime(desiredUnit);
+    return timers.get(timer).elapsed(desiredUnit);
   }
 
   /**
@@ -83,11 +100,14 @@ public class BuildMetrics implements Comparable<BuildMetrics> {
     return getMetricElapsedTime(timer, TimeUnit.MILLISECONDS);
   }
 
+  @Override
   public String toString() {
-    return String.format("wall time (ms) = %d, service time (ms) = %d, queue time (ms) = %d", getMetricMillis(Timer.WALLTIME_MS), getMetricMillis(Timer.SERVICETIME_MS),
+    return String.format("wall time (ms) = %d, service time (ms) = %d, queue time (ms) = %d",
+        getMetricMillis(Timer.WALLTIME_MS), getMetricMillis(Timer.SERVICETIME_MS),
         getMetricMillis(Timer.QUEUETIME_MS));
   }
 
+  @Override
   public int compareTo(BuildMetrics bm) {
     return descCompare(bm);
   }

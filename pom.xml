@@ -15,7 +15,27 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <mavenVersion>3.2.2</mavenVersion>
+    <takariLifecycleVersion>1.8.0-SNAPSHOT</takariLifecycleVersion>
   </properties>
+
+  <repositories>
+    <repository>
+      <id>takari.snapshots</id>
+      <url>http://repository.takari.io:8081/nexus/content/repositories/snapshots/</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <id>takari.snapshots</id>
+      <url>http://repository.takari.io:8081/nexus/content/repositories/snapshots/</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
 
   <dependencies>
     <dependency>
@@ -53,7 +73,7 @@
     <dependency>
       <groupId>io.takari.maven.plugins</groupId>
       <artifactId>takari-plugin-testing</artifactId>
-      <version>1.8.0-SNAPSHOT</version>
+      <version>${takariLifecycleVersion}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -70,7 +90,7 @@
       <plugin>
         <groupId>io.takari.maven.plugins</groupId>
         <artifactId>takari-lifecycle-plugin</artifactId>
-        <version>1.8.0-SNAPSHOT</version>
+        <version>${takariLifecycleVersion}</version>
         <extensions>true</extensions>
         <configuration>
             <!-- compile/testCompile -->

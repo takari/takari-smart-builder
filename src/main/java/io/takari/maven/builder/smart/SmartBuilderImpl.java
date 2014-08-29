@@ -94,6 +94,9 @@ class SmartBuilderImpl {
         listener.onStart(project);
       }
       buildProject(project);
+      for (Listener listener : listeners) {
+        listener.onFinish(project);
+      }
     }
 
     @Override

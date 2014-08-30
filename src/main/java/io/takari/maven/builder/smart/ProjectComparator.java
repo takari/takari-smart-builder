@@ -32,13 +32,13 @@ class ProjectComparator {
 
   public static Comparator<MavenProject> create(MavenSession session) {
     final ProjectDependencyGraph dependencyGraph = session.getProjectDependencyGraph();
-    final Map<String, String> historicalServiceTimes = readServiceTimes(session);
+    final Map<String, Long> historicalServiceTimes = readServiceTimes(session);
     return create(dependencyGraph, historicalServiceTimes);
   }
 
   // public for unit testing
   public static Comparator<MavenProject> create(final ProjectDependencyGraph dependencyGraph,
-      Map<String, String> historicalServiceTimes) {
+      final Map<String, Long> historicalServiceTimes) {
     final long defaultServiceTime = average(historicalServiceTimes.values());
 
     final Map<MavenProject, Long> serviceTimes = new HashMap<>();
@@ -70,12 +70,11 @@ class ProjectComparator {
     };
   }
 
-  private static long average(Collection<String> values) {
+  private static long average(Collection<Long> values) {
     long count = 0, sum = 0;
-    for (String string : values) {
-      long value = parseServiceTime(string);
-      if (value > 0) {
-        sum += value;
+    for (Long value : values) {
+      if (value != null) {
+        sum += value.longValue();
         count++;
       }
     }
@@ -98,11 +97,10 @@ class ProjectComparator {
     }
   }
 
-  private static Long getServiceTime(Map<String, String> serviceTimes, MavenProject project,
+  private static Long getServiceTime(Map<String, Long> serviceTimes, MavenProject project,
       long defaultServiceTime) {
-    String id = id(project);
-    long serviceTime = parseServiceTime(serviceTimes.get(id));
-    return serviceTime > 0 ? serviceTime : defaultServiceTime;
+    Long serviceTime = serviceTimes.get(id(project));
+    return serviceTime != null ? serviceTime.longValue() : defaultServiceTime;
   }
 
   private static Map<MavenProject, Long> calculateWeights(ProjectDependencyGraph dependencyGraph,
@@ -134,8 +132,8 @@ class ProjectComparator {
     return weight;
   }
 
-  private static Map<String, String> readServiceTimes(MavenSession session) {
-    Map<String, String> result = new HashMap<>();
+  private static Map<String, Long> readServiceTimes(MavenSession session) {
+    Map<String, Long> result = new HashMap<>();
     final File timingFile = getTimingFile(session);
     Properties properties = new Properties();
     if (timingFile != null) {
@@ -145,7 +143,7 @@ class ProjectComparator {
         // that's ok
       }
       for (String id : properties.stringPropertyNames()) {
-        result.put(id, properties.getProperty(id));
+        result.put(id, parseServiceTime(properties.getProperty(id)));
       }
     }
     return result;
@@ -179,6 +177,15 @@ class ProjectComparator {
         properties.store(os, null);
       }
     }
+  }
+
+  public static Comparator<MavenProject> create(ProjectDependencyGraph projectDependencyGraph,
+      ProjectsBuildMetrics projectsBuildMetrics) {
+    Map<String, Long> serviceTimes = new HashMap<>();
+    for (Map.Entry<MavenProject, Long> entry : projectsBuildMetrics.asMap(Timer.SERVICETIME_MS).entrySet()) {
+      serviceTimes.put(id(entry.getKey()), entry.getValue());
+    }
+    return create(projectDependencyGraph, serviceTimes);
   }
 
 }

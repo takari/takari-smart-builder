@@ -57,4 +57,13 @@ class ProjectsBuildMetrics implements SmartBuilderImpl.Listener {
   public void onFinish(MavenProject project) {
     stop(project, Timer.SERVICETIME_MS);
   }
+
+  public Map<MavenProject, Long> asMap(Timer timer) {
+    Map<MavenProject, Long> result = new HashMap<>();
+    for (Map.Entry<MavenProject, BuildMetrics> entry : projectsBuildMetrics.entrySet()) {
+      result.put(entry.getKey(), entry.getValue().getMetricMillis(timer));
+    }
+    return result;
+  }
+
 }

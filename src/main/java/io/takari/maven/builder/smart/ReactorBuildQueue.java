@@ -46,13 +46,17 @@ class ReactorBuildQueue {
   public Set<MavenProject> onProjectFinish(MavenProject project) {
     finishedProjects.add(project);
     Set<MavenProject> downstreamProjects = new HashSet<MavenProject>();
-    for (MavenProject successor : dependencyGraph.getDownstreamProjects(project, false)) {
+    for (MavenProject successor : getDownstreamProjects(project)) {
       if (blockedProjects.contains(successor) && isProjectReady(successor)) {
         blockedProjects.remove(successor);
         downstreamProjects.add(successor);
       }
     }
     return downstreamProjects;
+  }
+
+  public List<MavenProject> getDownstreamProjects(MavenProject project) {
+    return dependencyGraph.getDownstreamProjects(project, false);
   }
 
   private boolean isProjectReady(MavenProject project) {

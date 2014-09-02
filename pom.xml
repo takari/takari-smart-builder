@@ -15,7 +15,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <mavenVersion>3.2.2</mavenVersion>
-    <takariLifecycleVersion>1.8.0-SNAPSHOT</takariLifecycleVersion>
+    <takariLifecycleVersion>1.8.0</takariLifecycleVersion>
   </properties>
 
   <repositories>

@@ -2,52 +2,44 @@ package io.takari.maven.builder.smart.its;
 
 import io.takari.maven.testing.TestProperties;
 import io.takari.maven.testing.TestResources;
-import io.takari.maven.testing.it.*;
+import io.takari.maven.testing.executor.MavenExecution;
+import io.takari.maven.testing.executor.MavenExecutionResult;
+import io.takari.maven.testing.executor.MavenRuntime;
+import io.takari.maven.testing.executor.MavenVersions;
+import io.takari.maven.testing.executor.MavenRuntime.MavenRuntimeBuilder;
+import io.takari.maven.testing.executor.junit.MavenJUnitTestRunner;
 
 import java.io.File;
-import java.util.Arrays;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 
-@RunWith(Parameterized.class)
+@RunWith(MavenJUnitTestRunner.class)
+@MavenVersions({"3.2.1", "3.2.2", "3.2.3"})
 public class SmartBuilderIntegrationTest {
 
   @Rule
-  public final TestResources resources;
+  public final TestResources resources = new TestResources();
 
-  public final VerifierRuntime verifier;
+  public final TestProperties proprties = new TestProperties();;
 
-  public final TestProperties proprties;
+  public final MavenRuntime verifier;
 
-  @Parameters(name = "maven-{0}")
-  public static Iterable<Object[]> mavenVersions() {
-    return Arrays.<Object[]>asList( //
-        new Object[] {"3.2.1"} //
-        , new Object[] {"3.2.2"} //
-        );
-  }
-
-  public SmartBuilderIntegrationTest(String mavenVersion) throws Exception {
-    this.resources = new TestResources("src/test/projects", "target/it/" + mavenVersion + "/");
-    this.proprties = new TestProperties();
-    this.verifier = VerifierRuntime.builder(mavenVersion) //
-        .withExtension(new File("target/classes").getCanonicalFile()) //
+  public SmartBuilderIntegrationTest(MavenRuntimeBuilder runtimeBuilder) throws Exception {
+    this.verifier = runtimeBuilder.withExtension(new File("target/classes").getCanonicalFile()) //
         .build();
   }
 
   @Test
   public void testBasic() throws Exception {
     File basedir = resources.getBasedir("basic-it");
-    Verifier execution = verifier.forProject(basedir) //
+    MavenExecution execution = verifier.forProject(basedir) //
         .withCliOptions("--builder", "smart") //
         .withCliOptions("-T", "2") //
         .withCliOption("-Dmaven.profile=true") //
         .withCliOption("-e");
-    VerifierResult result = execution.execute("package");
+    MavenExecutionResult result = execution.execute("package");
     result.assertErrorFreeLog();
 
     TestResources.assertFilesPresent(basedir, ".mvn/timing.properties");

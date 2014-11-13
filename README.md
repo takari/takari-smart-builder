@@ -34,7 +34,7 @@ If you want to try the critical path scheduling you need to create an `.mvn` dir
 
 ## Reference and History
 
-The original implementation of the Smart Builder came from Brian Toal at [Salesforce][1] based on ideas from the paper [Static vs. Dynamic List-Scheduling Performance Comparison][2]. Takari subsequently added the metrics persistence and critical path scheduling.
+The original implementation of the Smart Builder came from Travis Downs and Brian Toal at [Salesforce][1] based on ideas from the paper [Static vs. Dynamic List-Scheduling Performance Comparison][2]. Takari subsequently added the metrics persistence and critical path scheduling.
 
 [1]: http://salesforce.com
 [2]: 4Hagras.pdf

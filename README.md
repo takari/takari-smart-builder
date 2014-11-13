@@ -10,6 +10,8 @@ The standard multi-threaded scheduler is dependency-depth based in that it build
 
 In addition to the more aggressive build processing the Smart Builder can also optionally record project build times to determine your build's critical path. When possible we always want to try and schedule the critical path first.
 
+**NOTE: You need to have Maven 3.2.1+ to use this extension.** 
+
 ## Installing
 
 To use the Takari Smart Builder you must install it in Maven's `lib/ext` folder:

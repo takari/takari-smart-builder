@@ -30,7 +30,7 @@ mvn clean install --builder smart
 
 ### Using Critical Path Scheduling
 
-If you want to try the critical path scheduling you need to create an `.mvn` directory at the root of your project for the `timing.properties` to be persisted. On subsequent runs the timing information will be used to schedule the longest chain, or critical path, first such that your build should take no longer than the critical path. 
+If you want to try the critical path scheduling you need to create an `.mvn` directory at the root of your project for the `timing.properties` to be persisted. On subsequent runs the timing information will be used to try and schedule the longest chain, or critical path, first. Where possible we try to schedule project builds such that your build should take no longer than the critical path, though this is not always possible.
 
 ## Reference and History
 

@@ -6,7 +6,7 @@ The Takari Smart Builder is made from the fastest unicorns that exist. The prima
 
 ![VsGraph](VsGraph.png)
 
-The standard multi-threaded scheduler is dependency-depth based in that it builds everything at a given dependency-depth before continuing to the next level, while the Smart Builder scheduler is dependency-path based in that projects are aggressively built along a dependenty-path in topological as upstream dependencies have been satisfied. 
+The standard multi-threaded scheduler is dependency-depth based in that it builds everything at a given dependency-depth before continuing to the next level, while the Smart Builder scheduler is dependency-path based in that projects are aggressively built along a dependenty-path in topological order as upstream dependencies have been satisfied. 
 
 ## Installing
 

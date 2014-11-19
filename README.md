@@ -24,11 +24,18 @@ cp takari-smart-builder-0.3.0.jar $MAVEN_HOME/lib/ext
 
 ## Using
 
-To use the Smart Builder invoke Maven like this:
+To take advantage of the Smart Builder you need to use multiple threads in order for the Smart Builder scheduling capabilities to take affect. To use the Smart Builder invoke Maven like this:
 
 ```
-mvn clean install --builder smart
+mvn clean install --builder smart -T8
 ```
+
+or something like, where you want to use 1 thread per core:
+
+```
+mvn clean install --builder smart -T1.0C
+```
+
 
 ### Using Critical Path Scheduling
 

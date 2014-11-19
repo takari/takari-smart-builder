@@ -36,6 +36,8 @@ or something like, where you want to use 1 thread per core:
 mvn clean install --builder smart -T1.0C
 ```
 
+Also note that if you are running builds in parallel that projects download their dependencies just prior to building the project. This means if you have two projects that are built simultaneously and require the same dependency it is likely your local Maven repository will be corrupted. In order to avoid this problem we recommend using the [Takari Local Repository][3] implementation which provides thread/process safe access to the local Maven repository. 
+
 
 ### Using Critical Path Scheduling
 
@@ -47,3 +49,4 @@ The original implementation of the Smart Builder came from Travis Downs and Bria
 
 [1]: http://salesforce.com
 [2]: 4Hagras.pdf
+[3]: https://github.com/takari/takari-local-repository

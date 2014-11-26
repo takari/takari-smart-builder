@@ -32,18 +32,21 @@ public class BuildMetrics implements Comparable<BuildMetrics> {
 
   private static class ThreadSafeStopwatch {
 
-    private final Stopwatch stopwatch = new Stopwatch();
+    private long start;
+
+    private long stop;
 
     public synchronized void start() {
-      stopwatch.start();
+      start = System.nanoTime();
     }
 
     public synchronized void stop() {
-      stopwatch.stop();
+      stop = System.nanoTime();
     }
 
     public synchronized long elapsed(TimeUnit desiredUnit) {
-      return stopwatch.elapsed(desiredUnit);
+      long duration = stop > 0 ? stop - start : System.nanoTime() - start;
+      return desiredUnit.convert(duration, TimeUnit.NANOSECONDS);
     }
 
   }

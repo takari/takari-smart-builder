@@ -1,6 +1,5 @@
 package io.takari.maven.builder.smart;
 
-import io.takari.maven.builder.smart.BuildMetrics;
 import io.takari.maven.builder.smart.BuildMetrics.Timer;
 
 import java.util.concurrent.TimeUnit;

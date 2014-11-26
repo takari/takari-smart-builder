@@ -26,7 +26,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.lifecycle.internal.LifecycleModuleBuilder;
@@ -38,7 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Stopwatch;
 
 /**
  * Maven {@link Builder} implementation that schedules execution of the reactor modules on the build
@@ -144,7 +142,7 @@ class SmartBuilderImpl {
 
   public void build() throws ExecutionException, InterruptedException {
 
-    final Stopwatch buildStopwatch = new Stopwatch().start();
+    final long buildStopwatch = System.currentTimeMillis();
 
     log("Task segments : " + Joiner.on(",").join(taskSegments));
     log("Build maximum degree of concurrency is " + degreeOfConcurrency);
@@ -159,7 +157,7 @@ class SmartBuilderImpl {
     }
     executor.shutdown(); // waits for all running tasks to complete
 
-    buildStopwatch.stop();
+    final long buildStopwatchEnd = System.currentTimeMillis();
 
     if (progressReporter != null) {
       progressReporter.terminate();
@@ -172,7 +170,7 @@ class SmartBuilderImpl {
     }
 
     if (isProfiling()) {
-      report(buildStopwatch.elapsed(TimeUnit.MILLISECONDS));
+      report(buildStopwatchEnd - buildStopwatch);
     }
 
   }
@@ -269,7 +267,7 @@ class SmartBuilderImpl {
   /* package */void buildProject(MavenProject project) {
     log("Starting " + project.getName());
 
-    Stopwatch projectStopwatch = new Stopwatch().start();
+    final long projectStopwatch = System.currentTimeMillis();
 
     try {
       MavenSession copiedSession = rootSession.clone();
@@ -286,7 +284,7 @@ class SmartBuilderImpl {
       // Ints.checkedCast(TimeUnit.NANOSECONDS.toMillis(executing.stopTask(projectBuild.getId())));
 
       log("Completed servicing " + project.getName() + " : "
-          + projectStopwatch.elapsed(TimeUnit.MILLISECONDS) + " (ms).");
+          + (System.currentTimeMillis() - projectStopwatch) + " (ms).");
     }
   }
 

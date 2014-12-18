@@ -16,7 +16,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(MavenJUnitTestRunner.class)
-@MavenVersions({"3.2.1", "3.2.2", "3.2.3", "3.2.4-SNAPSHOT"})
+@MavenVersions({"3.2.1", "3.2.2", "3.2.3", "3.2.5"})
 public class SmartBuilderIntegrationTest {
 
   @Rule

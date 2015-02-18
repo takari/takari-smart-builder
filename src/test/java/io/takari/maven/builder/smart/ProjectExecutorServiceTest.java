@@ -108,7 +108,7 @@ public class ProjectExecutorServiceTest extends AbstractSmartBuilderTest {
         new TestProjectRunnable(c)));
 
     executor.resume();
-    executor.shutdown();
+    executor.awaitShutdown();
 
     Assert.assertEquals(Arrays.asList(a, c, a, b), executed);
   }

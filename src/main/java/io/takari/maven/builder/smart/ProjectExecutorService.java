@@ -1,7 +1,18 @@
 package io.takari.maven.builder.smart;
 
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.maven.lifecycle.internal.BuildThreadFactory;
 import org.apache.maven.project.MavenProject;
@@ -11,8 +22,6 @@ import org.apache.maven.project.MavenProject;
  * <p>
  * Uses {@link PriorityBlockingQueue} and provided {@link Comparator} to order queue
  * {@link ProjectRunnable} tasks.
- * <p>
- * Maintains a queue of {@link MavenProject} that correspond to completed tasks, see {@link #take()}.
  */
 class ProjectExecutorService {
 
@@ -20,17 +29,17 @@ class ProjectExecutorService {
     public MavenProject getProject();
   }
 
-  private class ProjectFutureTask<V> extends FutureTask<V> implements ProjectRunnable {
+  private class ProjectFutureTask extends FutureTask<MavenProject> implements ProjectRunnable {
     private ProjectRunnable task;
 
-    public ProjectFutureTask(Runnable task) {
-      super(task, null);
-      this.task = (ProjectRunnable) task;
+    public ProjectFutureTask(ProjectRunnable task) {
+      super(task, task.getProject());
+      this.task = task;
     }
 
     @Override
     protected void done() {
-      completion.add(task.getProject());
+      completion.add(this);
     }
 
     @Override
@@ -41,7 +50,7 @@ class ProjectExecutorService {
 
   private final ExecutorService executor;
 
-  private final BlockingQueue<MavenProject> completion = new LinkedBlockingQueue<>();
+  private final BlockingQueue<Future<MavenProject>> completion = new LinkedBlockingQueue<>();
 
   private final Comparator<Runnable> taskComparator;
 
@@ -67,11 +76,6 @@ class ProjectExecutorService {
         ) {
 
           @Override
-          protected <T> RunnableFuture<T> newTaskFor(Runnable runnable, T value) {
-            return new ProjectFutureTask<T>(runnable);
-          }
-
-          @Override
           protected void beforeExecute(Thread t, Runnable r) {
             ProjectExecutorService.this.beforeExecute(t, r);
           }
@@ -85,7 +89,7 @@ class ProjectExecutorService {
     ArrayList<ProjectRunnable> sorted = new ArrayList<>(tasks);
     Collections.sort(sorted, taskComparator);
     for (ProjectRunnable task : sorted) {
-      executor.submit(task, null);
+      executor.execute(new ProjectFutureTask(task));
     }
   }
 
@@ -93,18 +97,20 @@ class ProjectExecutorService {
    * Returns {@link MavenProject} corresponding to the next completed task, waiting if none are yet
    * present.
    */
-  public MavenProject take() throws InterruptedException {
-    return completion.take();
+  public MavenProject take() throws InterruptedException, ExecutionException {
+    return completion.take().get();
   }
 
-  /**
-   * Waits for all running tasks to complete and shuts down the executor and
-   */
-  public void shutdown() throws InterruptedException {
+  public void shutdown() {
     executor.shutdown();
-    while (!executor.awaitTermination(5, TimeUnit.SECONDS));
   }
 
   // hook to allow pausing executor during unit tests
   protected void beforeExecute(Thread t, Runnable r) {}
+
+  // for testing purposes only
+  public void awaitShutdown() throws InterruptedException {
+    executor.shutdown();
+    while (!executor.awaitTermination(5, TimeUnit.SECONDS));
+  }
 }

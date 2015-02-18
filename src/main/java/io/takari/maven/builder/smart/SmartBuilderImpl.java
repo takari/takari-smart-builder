@@ -144,24 +144,33 @@ class SmartBuilderImpl {
 
     final long buildStopwatch = System.currentTimeMillis();
 
+    Set<MavenProject> rootProjects = reactorBuildQueue.getRootProjects();
+
     log("Task segments : " + Joiner.on(",").join(taskSegments));
     log("Build maximum degree of concurrency is " + degreeOfConcurrency);
-    log("Root level projects are " + Joiner.on(",").join(reactorBuildQueue.getRootProjects()));
+    log("Root level projects are " + Joiner.on(",").join(rootProjects));
 
     // this is the main build loop
-    submitAll(reactorBuildQueue.getRootProjects());
-    while (!reactorBuildQueue.isEmpty()) {
-      MavenProject completedProject = executor.take(); // blocks until there is a finished project
-      Set<MavenProject> readyProjects = reactorBuildQueue.onProjectFinish(completedProject);
-      submitAll(readyProjects);
+    submitAll(rootProjects);
+    int submittedCount = rootProjects.size();
+    while (submittedCount > 0) {
+      submittedCount--;
+      try {
+        MavenProject completedProject = executor.take();
+        Set<MavenProject> readyProjects = reactorBuildQueue.onProjectFinish(completedProject);
+        submitAll(readyProjects);
+        submittedCount += readyProjects.size();
+      } catch (ExecutionException e) {
+        // we get here when unhandled exception or error occurred on the worker thread
+        // this can be low-level system problem, like OOME, or runtime exception in maven code
+        // there is no meaningful recovery, so we shutdown and rethrow the exception
+        shutdown();
+        throw e;
+      }
     }
-    executor.shutdown(); // waits for all running tasks to complete
+    shutdown();
 
     final long buildStopwatchEnd = System.currentTimeMillis();
-
-    if (progressReporter != null) {
-      progressReporter.terminate();
-    }
 
     try {
       ProjectComparator.writeServiceTimes(rootSession, projectsBuildMetrics);
@@ -172,7 +181,13 @@ class SmartBuilderImpl {
     if (isProfiling()) {
       report(buildStopwatchEnd - buildStopwatch);
     }
+  }
 
+  private void shutdown() {
+    executor.shutdown();
+    if (progressReporter != null) {
+      progressReporter.terminate();
+    }
   }
 
   private void report(final long wallTime) {

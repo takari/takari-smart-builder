@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>io.takari</groupId>
@@ -14,7 +15,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <mavenVersion>3.2.2</mavenVersion>
-    <takariLifecycleVersion>1.8.5</takariLifecycleVersion>
+    <pluginTestingVersion>2.1.0</pluginTestingVersion>
   </properties>
 
   <dependencies>
@@ -53,13 +54,14 @@
     <dependency>
       <groupId>io.takari.maven.plugins</groupId>
       <artifactId>takari-plugin-testing</artifactId>
-      <version>${takariLifecycleVersion}</version>
+      <version>${pluginTestingVersion}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.maven.plugin-testing</groupId>
-      <artifactId>maven-plugin-testing-harness</artifactId>
-      <version>3.2.0</version>
+      <groupId>io.takari.maven.plugins</groupId>
+      <artifactId>takari-plugin-integration-testing</artifactId>
+      <version>${pluginTestingVersion}</version>
+      <type>pom</type>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -78,71 +80,27 @@
         <artifactId>sisu-maven-plugin</artifactId>
       </plugin>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <version>2.8</version>
+        <groupId>io.takari.maven.plugins</groupId>
+        <artifactId>takari-lifecycle-plugin</artifactId>
         <executions>
           <execution>
-            <id>unpack</id>
-            <phase>generate-test-resources</phase>
+            <id>testProperties</id>
+            <phase>process-test-resources</phase>
             <goals>
-              <goal>unpack</goal>
+              <goal>testProperties</goal>
             </goals>
-            <configuration>
-              <outputDirectory>${project.build.directory}/maven-installation</outputDirectory>
-              <artifactItems>
-                <artifactItem>
-                  <groupId>org.apache.maven</groupId>
-                  <artifactId>apache-maven</artifactId>
-                  <version>3.2.3</version>
-                  <classifier>bin</classifier>
-                  <type>tar.gz</type>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.apache.maven</groupId>
-                  <artifactId>apache-maven</artifactId>
-                  <version>3.2.5</version>
-                  <classifier>bin</classifier>
-                  <type>tar.gz</type>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.apache.maven</groupId>
-                  <artifactId>apache-maven</artifactId>
-                  <version>3.2.6-SNAPSHOT</version>
-                  <classifier>bin</classifier>
-                  <type>tar.gz</type>
-                </artifactItem>
-              </artifactItems>
-            </configuration>
           </execution>
         </executions>
       </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
-        <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
         <plugin>
-          <groupId>org.eclipse.m2e</groupId>
-          <artifactId>lifecycle-mapping</artifactId>
-          <version>1.0.0</version>
+          <groupId>io.takari.maven.plugins</groupId>
+          <artifactId>takari-lifecycle-plugin</artifactId>
+          <version>1.10.2</version>
           <configuration>
-            <lifecycleMappingMetadata>
-              <pluginExecutions>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-dependency-plugin</artifactId>
-                    <versionRange>[2.8,)</versionRange>
-                    <goals>
-                      <goal>unpack</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore />
-                  </action>
-                </pluginExecution>
-              </pluginExecutions>
-            </lifecycleMappingMetadata>
+            <proc>none</proc>
           </configuration>
         </plugin>
       </plugins>

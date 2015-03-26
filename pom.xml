@@ -15,7 +15,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <mavenVersion>3.2.2</mavenVersion>
-    <pluginTestingVersion>2.1.0</pluginTestingVersion>
+    <pluginTestingVersion>2.2.0</pluginTestingVersion>
   </properties>
 
   <dependencies>

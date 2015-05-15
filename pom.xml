@@ -4,7 +4,7 @@
   <parent>
     <groupId>io.takari</groupId>
     <artifactId>takari</artifactId>
-    <version>15</version>
+    <version>17</version>
   </parent>
   <groupId>io.takari.maven</groupId>
   <artifactId>takari-smart-builder</artifactId>
@@ -76,10 +76,6 @@
 
     <plugins>
       <plugin>
-        <groupId>org.eclipse.sisu</groupId>
-        <artifactId>sisu-maven-plugin</artifactId>
-      </plugin>
-      <plugin>
         <groupId>io.takari.maven.plugins</groupId>
         <artifactId>takari-lifecycle-plugin</artifactId>
         <executions>
@@ -90,20 +86,15 @@
               <goal>testProperties</goal>
             </goals>
           </execution>
+          <execution>
+            <id>sisu-index</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>sisu-index</goal>
+            </goals>
+          </execution>
         </executions>
       </plugin>
     </plugins>
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <groupId>io.takari.maven.plugins</groupId>
-          <artifactId>takari-lifecycle-plugin</artifactId>
-          <version>1.10.3</version>
-          <configuration>
-            <proc>none</proc>
-          </configuration>
-        </plugin>
-      </plugins>
-    </pluginManagement>
   </build>
 </project>

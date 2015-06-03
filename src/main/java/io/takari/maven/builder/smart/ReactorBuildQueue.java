@@ -1,6 +1,10 @@
 package io.takari.maven.builder.smart;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
@@ -14,6 +18,8 @@ class ReactorBuildQueue {
   private final ProjectDependencyGraph dependencyGraph;
 
   private final Set<MavenProject> rootProjects;
+
+  private final Collection<MavenProject> projects;
 
   /**
    * Projects waiting for other projects to finish
@@ -37,6 +43,7 @@ class ReactorBuildQueue {
     }
 
     this.rootProjects = Collections.unmodifiableSet(rootProjects);
+    this.projects = Collections.unmodifiableList(projects);
   }
 
   /**
@@ -81,4 +88,24 @@ class ReactorBuildQueue {
   public Set<MavenProject> getRootProjects() {
     return rootProjects;
   }
+
+  public int getBlockedCount() {
+    return blockedProjects.size();
+  }
+
+  public int getFinishedCount() {
+    return finishedProjects.size();
+  }
+
+  public int getReadyCount() {
+    return projects.size() - blockedProjects.size() - finishedProjects.size();
+  }
+
+  public Set<MavenProject> getReadyProjects() {
+    Set<MavenProject> projects = new HashSet<>(this.projects);
+    projects.removeAll(blockedProjects);
+    projects.removeAll(finishedProjects);
+    return projects;
+  }
+
 }

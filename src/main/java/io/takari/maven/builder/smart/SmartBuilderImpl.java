@@ -15,9 +15,6 @@ package io.takari.maven.builder.smart;
  * the License.
  */
 
-import io.takari.maven.builder.smart.BuildMetrics.Timer;
-import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,6 +24,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.maven.execution.BuildFailure;
+import org.apache.maven.execution.BuildSuccess;
+import org.apache.maven.execution.BuildSummary;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.lifecycle.internal.LifecycleModuleBuilder;
 import org.apache.maven.lifecycle.internal.ReactorContext;
@@ -37,6 +37,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
+
+import io.takari.maven.builder.smart.BuildMetrics.Timer;
+import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
 
 /**
  * Maven {@link Builder} implementation that schedules execution of the reactor modules on the build
@@ -157,9 +160,12 @@ class SmartBuilderImpl {
       submittedCount--;
       try {
         MavenProject completedProject = executor.take();
+        logCompleted(completedProject);
         Set<MavenProject> readyProjects = reactorBuildQueue.onProjectFinish(completedProject);
         submitAll(readyProjects);
         submittedCount += readyProjects.size();
+
+        logBuildQueueStatus();
       } catch (ExecutionException e) {
         // we get here when unhandled exception or error occurred on the worker thread
         // this can be low-level system problem, like OOME, or runtime exception in maven code
@@ -183,6 +189,45 @@ class SmartBuilderImpl {
     }
   }
 
+  private void logBuildQueueStatus() {
+    int blockedCount = reactorBuildQueue.getBlockedCount();
+    int finishedCount = reactorBuildQueue.getFinishedCount();
+    int readyCount = reactorBuildQueue.getReadyCount();
+    String runningProjects = "";
+    if (readyCount < degreeOfConcurrency && blockedCount > 0) {
+      StringBuffer sb = new StringBuffer();
+      sb.append('[');
+      for (MavenProject project : reactorBuildQueue.getReadyProjects()) {
+        if (sb.length() > 1) {
+          sb.append(' ');
+        }
+        sb.append(projectGA(project));
+      }
+      sb.append(']');
+      runningProjects = sb.toString();
+    }
+    logger.info("Builder state: blocked={} finished={} ready-or-running={} {}", blockedCount,
+        finishedCount, readyCount, runningProjects);
+  }
+
+  private void logCompleted(MavenProject project) {
+    BuildSummary buildSummary = rootSession.getResult().getBuildSummary(project);
+    String message = "SKIPPED";
+    if (buildSummary instanceof BuildSuccess) {
+      message = "SUCCESS";
+    } else if (buildSummary instanceof BuildFailure) {
+      message = "FAILURE";
+    } else if (buildSummary != null) {
+      logger.warn("Unexpected project build summary class {}", buildSummary.getClass());
+      message = "UNKNOWN";
+    }
+    logger.info("{} build of project {}", message, projectGA(project));
+  }
+
+  private String projectGA(MavenProject project) {
+    return project.getGroupId() + ":" + project.getArtifactId();
+  }
+
   private void shutdown() {
     executor.shutdown();
     if (progressReporter != null) {
@@ -203,17 +248,15 @@ class SmartBuilderImpl {
 
     final float schedullingEfficiency = ((float) criticalPathTime) / ((float) wallTime);
 
-    logger
-        .info(
-            "Smart builder : projects={}, wallTime={} ms, criticalPathTime={} ms, schedullingEfficiency={} %",
-            projectCount, wallTime, criticalPathTime,
-            String.format("%3.2f", schedullingEfficiency * 100));
+    logger.info(
+        "Smart builder : projects={}, wallTime={} ms, criticalPathTime={} ms, schedullingEfficiency={} %",
+        projectCount, wallTime, criticalPathTime,
+        String.format("%3.2f", schedullingEfficiency * 100));
 
     StringBuilder sb = new StringBuilder();
-    sb.append(String
-        .format(
-            "Smart builder : critical path projects %d time %d ms (project serviceTime ms queueTime ms):",
-            criticalPath.size(), criticalPathTime));
+    sb.append(String.format(
+        "Smart builder : critical path projects %d time %d ms (project serviceTime ms queueTime ms):",
+        criticalPath.size(), criticalPathTime));
     appendBuildMetrics(sb, criticalPath);
     logger.info(sb.toString());
 
@@ -275,6 +318,7 @@ class SmartBuilderImpl {
         listener.onReady(project);
       }
       tasks.add(new ProjectBuildTask(project));
+      logger.info("Ready {}", projectGA(project));
     }
     executor.submitAll(tasks);
   }
@@ -292,8 +336,8 @@ class SmartBuilderImpl {
       }
     } catch (RuntimeException ex) {
       // preserve the xml stack trace, and the java cause chain
-      rootSession.getResult().addException(
-          new RuntimeException(project.getName() + ": " + ex.getMessage(), ex));
+      rootSession.getResult()
+          .addException(new RuntimeException(project.getName() + ": " + ex.getMessage(), ex));
     } finally {
       // runtime =
       // Ints.checkedCast(TimeUnit.NANOSECONDS.toMillis(executing.stopTask(projectBuild.getId())));

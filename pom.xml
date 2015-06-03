@@ -9,7 +9,7 @@
   <groupId>io.takari.maven</groupId>
   <artifactId>takari-smart-builder</artifactId>
   <version>0.4.1-SNAPSHOT</version>
-  <packaging>takari-jar</packaging>
+  <packaging>takari-maven-component</packaging>
   <name>Takari Smart Builder for Maven</name>
 
   <properties>
@@ -74,27 +74,14 @@
       </testResource>
     </testResources>
 
-    <plugins>
-      <plugin>
-        <groupId>io.takari.maven.plugins</groupId>
-        <artifactId>takari-lifecycle-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>testProperties</id>
-            <phase>process-test-resources</phase>
-            <goals>
-              <goal>testProperties</goal>
-            </goals>
-          </execution>
-          <execution>
-            <id>sisu-index</id>
-            <phase>process-classes</phase>
-            <goals>
-              <goal>sisu-index</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>io.takari.maven.plugins</groupId>
+          <artifactId>takari-lifecycle-plugin</artifactId>
+          <version>1.11.6</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
   </build>
 </project>

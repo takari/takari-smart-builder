@@ -47,4 +47,38 @@ public class SmartBuilderIntegrationTest {
     result = execution.execute("package");
     result.assertErrorFreeLog();
   }
+
+  @Test
+  public void testTimingProperty() throws Exception {
+    File basedir = resources.getBasedir("basic-it");
+    String myFolder = basedir + ".mvn/";
+    String myFile = "timing.properties.0";
+    MavenExecution execution = verifier.forProject(basedir) //
+        .withCliOptions("--builder", "smart") //
+        .withCliOption("-Dtiming.properties.folder=" + myFolder)
+        .withCliOption("-Dtiming.properties.file=" + myFile); //
+    MavenExecutionResult result = execution.execute("package");
+    result.assertErrorFreeLog();
+
+    TestResources.assertFilesPresent(new File(myFolder), myFile);
+
+    result = execution.execute("package");
+    result.assertErrorFreeLog();
+  }
+
+  @Test
+  public void testTimingPropertyWithFolderOnly() throws Exception {
+    File basedir = resources.getBasedir("basic-it");
+    String myFolder = basedir + ".mvn/";
+    MavenExecution execution = verifier.forProject(basedir) //
+        .withCliOptions("--builder", "smart") //
+        .withCliOption("-Dtiming.properties.folder=" + myFolder);
+    MavenExecutionResult result = execution.execute("package");
+    result.assertErrorFreeLog();
+
+    TestResources.assertFilesPresent(new File(myFolder), "timing.properties");
+
+    result = execution.execute("package");
+    result.assertErrorFreeLog();
+  }
 }

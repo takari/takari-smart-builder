@@ -150,6 +150,19 @@ class ProjectComparator {
   }
 
   private static File getTimingFile(MavenSession session) {
+    String myFolderProperty = System.getProperty("timing.properties.folder");
+    String myFileProperty = System.getProperty("timing.properties.file");
+    if (myFolderProperty != null) {
+      String myFileName = myFileProperty != null ? myFileProperty : "timing.properties";
+      File myFile = new File(myFolderProperty + File.separator+ myFileName);
+      myFile.getParentFile().mkdirs();
+      try {
+        myFile.createNewFile();
+      } catch (IOException aE) {
+        // no-op
+      }
+      return myFile;
+    }
     File mvndir = new File(session.getRequest().getBaseDirectory(), ".mvn");
     return mvndir.isDirectory() ? new File(mvndir, "timing.properties") : null;
   }

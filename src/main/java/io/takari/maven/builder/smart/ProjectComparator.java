@@ -167,7 +167,7 @@ class ProjectComparator {
   public static void writeServiceTimes(MavenSession session, ProjectsBuildMetrics metrics)
       throws IOException {
     final File timingFile = getTimingFile(session);
-    if (timingFile != null) {
+    if (timingFile != null && timingFile.isFile()) {
       Properties properties = new Properties();
       for (MavenProject project : metrics.getProjects()) {
         long serviceTime = metrics.getBuildMetrics(project).getMetricMillis(Timer.SERVICETIME_MS);

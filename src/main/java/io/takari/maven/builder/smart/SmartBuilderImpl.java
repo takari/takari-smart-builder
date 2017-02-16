@@ -318,13 +318,13 @@ class SmartBuilderImpl {
         listener.onReady(project);
       }
       tasks.add(new ProjectBuildTask(project));
-      logger.info("Ready {}", projectGA(project));
+      logger.debug("Ready {}", projectGA(project));
     }
     executor.submitAll(tasks);
   }
 
   /* package */void buildProject(MavenProject project) {
-    log("Starting " + project.getName());
+    logger.info("STARTED build of project {}", projectGA(project));
 
     final long projectStopwatch = System.currentTimeMillis();
 

@@ -150,7 +150,7 @@ class ProjectComparator {
   }
 
   private static File getTimingFile(MavenSession session) {
-    File mvndir = new File(session.getRequest().getBaseDirectory(), ".mvn");
+    File mvndir = new File(session.getRequest().getMultiModuleProjectDirectory(), ".mvn");
     return mvndir.isDirectory() ? new File(mvndir, "timing.properties") : null;
   }
 

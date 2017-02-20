@@ -16,8 +16,6 @@ package io.takari.maven.builder.smart;
  */
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -35,9 +33,6 @@ import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Joiner;
-
-import io.takari.maven.builder.smart.BuildMetrics.Timer;
 import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
 
 /**
@@ -52,25 +47,6 @@ class SmartBuilderImpl {
 
   private final Logger logger = LoggerFactory.getLogger(SmartBuilder.class);
 
-  static interface Listener {
-    /**
-     * Called when the project becomes ready, i.e. after all project's reactor dependencies were
-     * built.
-     */
-    public void onReady(MavenProject project);
-
-    /**
-     * Called when the project build starts
-     */
-    public void onStart(MavenProject project);
-
-    /**
-     * Called when project build finishes.
-     */
-    public void onFinish(MavenProject project);
-  }
-
-
   // global components
   private final LifecycleModuleBuilder lifecycleModuleBuilder;
 
@@ -80,13 +56,12 @@ class SmartBuilderImpl {
   private final TaskSegment taskSegment;
 
   //
-  private final List<Listener> listeners;
   private final ReactorBuildQueue reactorBuildQueue;
   private final ProjectExecutorService executor;
-  private final BuildProgressReportThread progressReporter;
   private final int degreeOfConcurrency;
-  private final ProjectsBuildMetrics projectsBuildMetrics;
 
+  //
+  private final ReactorBuildStats stats;
 
   class ProjectBuildTask implements ProjectRunnable {
     private final MavenProject project;
@@ -97,12 +72,11 @@ class SmartBuilderImpl {
 
     @Override
     public void run() {
-      for (Listener listener : listeners) {
-        listener.onStart(project);
-      }
-      buildProject(project);
-      for (Listener listener : listeners) {
-        listener.onFinish(project);
+      final long start = System.nanoTime();
+      try {
+        buildProject(project);
+      } finally {
+        stats.recordServiceTime(project, System.nanoTime() - start);
       }
     }
 
@@ -121,47 +95,40 @@ class SmartBuilderImpl {
 
     this.degreeOfConcurrency = Integer.valueOf(session.getRequest().getDegreeOfConcurrency());
 
-    List<Listener> listeners = new ArrayList<>();
-
-    this.projectsBuildMetrics = new ProjectsBuildMetrics(projects);
-    listeners.add(projectsBuildMetrics);
-
-    BuildProgressReportThread progressReporter = null;
-    if (isProfiling()) {
-      progressReporter = new BuildProgressReportThread(projects.size(), degreeOfConcurrency);
-      progressReporter.start();
-      listeners.add(progressReporter);
-    }
-    this.progressReporter = progressReporter;
-
     final Comparator<MavenProject> projectComparator = ProjectComparator.create(session);
 
     this.reactorBuildQueue = new ReactorBuildQueue(projects, session.getProjectDependencyGraph());
-    this.listeners = Collections.unmodifiableList(listeners);
     this.executor = new ProjectExecutorService(degreeOfConcurrency, projectComparator);
+
+    this.stats = ReactorBuildStats.create(projects);
   }
 
-  public void build() throws ExecutionException, InterruptedException {
-
-    final long buildStopwatch = System.currentTimeMillis();
+  public ReactorBuildStats build() throws ExecutionException, InterruptedException {
+    stats.recordStart();
 
     Set<MavenProject> rootProjects = reactorBuildQueue.getRootProjects();
 
-    log("Task segments : " + taskSegment);
-    log("Build maximum degree of concurrency is " + degreeOfConcurrency);
-    log("Root level projects are " + Joiner.on(",").join(rootProjects));
-
     // this is the main build loop
     submitAll(rootProjects);
+    long timstampSubmit = System.nanoTime();
     int submittedCount = rootProjects.size();
     while (submittedCount > 0) {
-      submittedCount--;
+      Set<MavenProject> bottlenecks = null;
+      if (submittedCount < degreeOfConcurrency) {
+        bottlenecks = reactorBuildQueue.getReadyProjects();
+      }
+
       try {
         MavenProject completedProject = executor.take();
+        if (bottlenecks != null) {
+          stats.recordBottlenecks(bottlenecks, degreeOfConcurrency,
+              System.nanoTime() - timstampSubmit);
+        }
         logCompleted(completedProject);
         Set<MavenProject> readyProjects = reactorBuildQueue.onProjectFinish(completedProject);
         submitAll(readyProjects);
-        submittedCount += readyProjects.size();
+        timstampSubmit = System.nanoTime();
+        submittedCount += (readyProjects.size() - 1);
 
         logBuildQueueStatus();
       } catch (ExecutionException e) {
@@ -174,12 +141,8 @@ class SmartBuilderImpl {
     }
     shutdown();
 
-    final long buildStopwatchEnd = System.currentTimeMillis();
-
-
-    if (isProfiling()) {
-      report(buildStopwatchEnd - buildStopwatch);
-    }
+    stats.recordStop();
+    return stats;
   }
 
   private void logBuildQueueStatus() {
@@ -217,99 +180,17 @@ class SmartBuilderImpl {
     logger.info("{} build of project {}", message, projectGA(project));
   }
 
-  private String projectGA(MavenProject project) {
+  private static String projectGA(MavenProject project) {
     return project.getGroupId() + ":" + project.getArtifactId();
   }
 
   private void shutdown() {
     executor.shutdown();
-    if (progressReporter != null) {
-      progressReporter.terminate();
-    }
-  }
-
-  private void report(final long wallTime) {
-    // total number of projects
-    // wall-clock time
-    // critical path build time
-    // scheduling efficiency (critical-path vs wall-clock times ratio)
-
-    final List<MavenProject> projects = rootSession.getProjects();
-    final int projectCount = projects.size();
-    final List<MavenProject> criticalPath = calculateCriticalPath();
-    final long criticalPathTime = totalTime(criticalPath);
-
-    final float schedullingEfficiency = ((float) criticalPathTime) / ((float) wallTime);
-
-    logger.info(
-        "Smart builder : projects={}, wallTime={} ms, criticalPathTime={} ms, schedullingEfficiency={} %",
-        projectCount, wallTime, criticalPathTime,
-        String.format("%3.2f", schedullingEfficiency * 100));
-
-    StringBuilder sb = new StringBuilder();
-    sb.append(String.format(
-        "Smart builder : critical path projects %d time %d ms (project serviceTime ms queueTime ms):",
-        criticalPath.size(), criticalPathTime));
-    appendBuildMetrics(sb, criticalPath);
-    logger.info(sb.toString());
-
-    sb = new StringBuilder();
-    sb.append(String.format(
-        "Smart builder : all projects %d (project serviceTime ms queueTime ms):", projectCount));
-    appendBuildMetrics(sb, projects);
-    logger.info(sb.toString());
-  }
-
-  private void appendBuildMetrics(StringBuilder result, List<MavenProject> projects) {
-    for (MavenProject project : projects) {
-      if (result.length() > 0) {
-        result.append("\n   ");
-      }
-      final BuildMetrics metrics = projectsBuildMetrics.getBuildMetrics(project);
-      final long serviceTime = metrics.getMetricMillis(Timer.SERVICETIME_MS);
-      final long queueTime = metrics.getMetricMillis(Timer.QUEUETIME_MS);
-      result.append(project.getGroupId()).append(':').append(project.getArtifactId());
-      result.append(' ').append(serviceTime).append(' ').append(queueTime);
-    }
-  }
-
-  private long totalTime(List<MavenProject> projects) {
-    long total = 0;
-    for (MavenProject project : projects) {
-      total += projectsBuildMetrics.getBuildMetrics(project).getMetricMillis(Timer.SERVICETIME_MS);
-    }
-    return total;
-  }
-
-  private List<MavenProject> calculateCriticalPath() {
-    List<MavenProject> criticalPath = new ArrayList<>();
-    Comparator<MavenProject> comparator =
-        ProjectComparator.create(rootSession.getProjectDependencyGraph(), projectsBuildMetrics);
-    MavenProject project = getCriticalProject(reactorBuildQueue.getRootProjects(), comparator);
-    do {
-      criticalPath.add(project);
-    } while ((project =
-        getCriticalProject(reactorBuildQueue.getDownstreamProjects(project), comparator)) != null);
-    return criticalPath;
-  }
-
-  private MavenProject getCriticalProject(Collection<MavenProject> projects,
-      Comparator<MavenProject> comparator) {
-    if (projects == null || projects.isEmpty()) {
-      return null;
-    }
-    List<MavenProject> sorted = new ArrayList<>(projects);
-    Collections.sort(sorted, comparator);
-    return sorted.get(0);
   }
 
   private void submitAll(Set<MavenProject> readyProjects) {
-    printReadyQueue(readyProjects);
     List<ProjectBuildTask> tasks = new ArrayList<>();
     for (MavenProject project : readyProjects) {
-      for (Listener listener : listeners) {
-        listener.onReady(project);
-      }
       tasks.add(new ProjectBuildTask(project));
       logger.debug("Ready {}", projectGA(project));
     }
@@ -319,8 +200,6 @@ class SmartBuilderImpl {
   /* package */void buildProject(MavenProject project) {
     logger.info("STARTED build of project {}", projectGA(project));
 
-    final long projectStopwatch = System.currentTimeMillis();
-
     try {
       MavenSession copiedSession = rootSession.clone();
       lifecycleModuleBuilder.buildProject(copiedSession, rootSession, reactorContext, project,
@@ -329,38 +208,6 @@ class SmartBuilderImpl {
       // preserve the xml stack trace, and the java cause chain
       rootSession.getResult()
           .addException(new RuntimeException(project.getName() + ": " + ex.getMessage(), ex));
-    } finally {
-      // runtime =
-      // Ints.checkedCast(TimeUnit.NANOSECONDS.toMillis(executing.stopTask(projectBuild.getId())));
-
-      log("Completed servicing " + project.getName() + " : "
-          + (System.currentTimeMillis() - projectStopwatch) + " (ms).");
-    }
-  }
-
-  private boolean isProfiling() {
-    return System.getProperty("maven.profile") != null;
-  }
-
-  private void printReadyQueue(Collection<MavenProject> readyQueue) {
-    if (isProfiling() && !readyQueue.isEmpty()) {
-      log("================================");
-      for (MavenProject project : readyQueue) {
-        log(project.getName());
-      }
-      log("--------------------------------");
-    }
-  }
-
-  public void log(final String s) {
-    if (isProfiling()) {
-      logger.info("Smart Builder : " + s);
-    }
-  }
-
-  static void checkState(boolean b, String string) {
-    if (!b) {
-      throw new RuntimeException(string);
     }
   }
 

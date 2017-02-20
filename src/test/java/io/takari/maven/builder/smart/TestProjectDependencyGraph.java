@@ -9,7 +9,7 @@ import org.junit.Assert;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 
-public class TestProjectDependencyGraph implements ProjectDependencyGraph {
+public class TestProjectDependencyGraph implements ProjectDependencyGraph, DependencyGraph<MavenProject> {
 
   private final List<MavenProject> projects = new ArrayList<MavenProject>();
 
@@ -35,8 +35,18 @@ public class TestProjectDependencyGraph implements ProjectDependencyGraph {
   }
 
   @Override
+  public List<MavenProject> getDownstreamProjects(MavenProject project) {
+    return downstream.get(project);
+  }
+
+  @Override
   public List<MavenProject> getUpstreamProjects(MavenProject project, boolean transitive) {
     Assert.assertFalse("not implemented", transitive);
+    return upstream.get(project);
+  }
+
+  @Override
+  public List<MavenProject> getUpstreamProjects(MavenProject project) {
     return upstream.get(project);
   }
 

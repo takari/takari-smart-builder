@@ -78,7 +78,7 @@ class SmartBuilderImpl {
   // session-level components
   private final MavenSession rootSession;
   private final ReactorContext reactorContext;
-  private final List<TaskSegment> taskSegments;
+  private final TaskSegment taskSegment;
 
   //
   private final List<Listener> listeners;
@@ -114,13 +114,12 @@ class SmartBuilderImpl {
   }
 
   SmartBuilderImpl(LifecycleModuleBuilder lifecycleModuleBuilder, MavenSession session,
-      ReactorContext reactorContext, List<TaskSegment> taskSegments) {
+      ReactorContext reactorContext, TaskSegment taskSegment, Set<MavenProject> projects) {
     this.lifecycleModuleBuilder = lifecycleModuleBuilder;
     this.rootSession = session;
     this.reactorContext = reactorContext;
-    this.taskSegments = taskSegments;
+    this.taskSegment = taskSegment;
 
-    final List<MavenProject> projects = session.getProjects();
     this.degreeOfConcurrency = Integer.valueOf(session.getRequest().getDegreeOfConcurrency());
 
     List<Listener> listeners = new ArrayList<>();
@@ -138,7 +137,7 @@ class SmartBuilderImpl {
 
     final Comparator<MavenProject> projectComparator = ProjectComparator.create(session);
 
-    this.reactorBuildQueue = new ReactorBuildQueue(session.getProjectDependencyGraph());
+    this.reactorBuildQueue = new ReactorBuildQueue(projects, session.getProjectDependencyGraph());
     this.listeners = Collections.unmodifiableList(listeners);
     this.executor = new ProjectExecutorService(degreeOfConcurrency, projectComparator);
   }
@@ -149,7 +148,7 @@ class SmartBuilderImpl {
 
     Set<MavenProject> rootProjects = reactorBuildQueue.getRootProjects();
 
-    log("Task segments : " + Joiner.on(",").join(taskSegments));
+    log("Task segments : " + taskSegment);
     log("Build maximum degree of concurrency is " + degreeOfConcurrency);
     log("Root level projects are " + Joiner.on(",").join(rootProjects));
 
@@ -330,10 +329,8 @@ class SmartBuilderImpl {
 
     try {
       MavenSession copiedSession = rootSession.clone();
-      for (TaskSegment taskSegment : taskSegments) {
-        lifecycleModuleBuilder.buildProject(copiedSession, rootSession, reactorContext, project,
-            taskSegment);
-      }
+      lifecycleModuleBuilder.buildProject(copiedSession, rootSession, reactorContext, project,
+          taskSegment);
     } catch (RuntimeException ex) {
       // preserve the xml stack trace, and the java cause chain
       rootSession.getResult()

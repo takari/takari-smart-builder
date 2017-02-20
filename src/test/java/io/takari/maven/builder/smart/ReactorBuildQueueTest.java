@@ -12,7 +12,7 @@ public class ReactorBuildQueueTest extends AbstractSmartBuilderTest {
     TestProjectDependencyGraph graph = new TestProjectDependencyGraph(a, b, c);
     graph.addDependency(b, a);
 
-    ReactorBuildQueue schl = new ReactorBuildQueue(graph);
+    ReactorBuildQueue schl = new ReactorBuildQueue(graph.getSortedProjects(), graph);
 
     assertProjects(schl.getRootProjects(), a, c);
     Assert.assertFalse(schl.isEmpty());
@@ -26,7 +26,7 @@ public class ReactorBuildQueueTest extends AbstractSmartBuilderTest {
     MavenProject a = newProject("a"), b = newProject("b"), c = newProject("c");
     TestProjectDependencyGraph graph = new TestProjectDependencyGraph(a, b, c);
 
-    ReactorBuildQueue schl = new ReactorBuildQueue(graph);
+    ReactorBuildQueue schl = new ReactorBuildQueue(graph.getSortedProjects(), graph);
 
     assertProjects(schl.getRootProjects(), a, b, c);
     Assert.assertTrue(schl.isEmpty());
@@ -39,7 +39,7 @@ public class ReactorBuildQueueTest extends AbstractSmartBuilderTest {
     graph.addDependency(b, a);
     graph.addDependency(b, c);
 
-    ReactorBuildQueue schl = new ReactorBuildQueue(graph);
+    ReactorBuildQueue schl = new ReactorBuildQueue(graph.getSortedProjects(), graph);
 
     assertProjects(schl.getRootProjects(), a, c);
     Assert.assertFalse(schl.isEmpty());

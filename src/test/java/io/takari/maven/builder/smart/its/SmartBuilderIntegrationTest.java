@@ -9,6 +9,8 @@ import io.takari.maven.testing.executor.MavenRuntime.MavenRuntimeBuilder;
 import io.takari.maven.testing.executor.MavenVersions;
 import io.takari.maven.testing.executor.junit.MavenJUnitTestRunner;
 
+import static io.takari.maven.testing.TestResources.*;
+
 import java.io.File;
 import java.io.FileOutputStream;
 
@@ -58,5 +60,27 @@ public class SmartBuilderIntegrationTest {
 
     assertEquals("timingFile.exists", true, timingFile.isFile());
     assertTrue("timingFile.length > 0", timingFile.length() > 0);
+  }
+
+  @Test
+  public void testAggregatorPlugin() throws Exception {
+    verifier.forProject(resources.getBasedir("aggregator-plugin")) //
+        .execute("clean", "install") //
+        .assertErrorFreeLog();
+
+    File basedir = resources.getBasedir("basic-it");
+
+    MavenExecutionResult result = verifier.forProject(basedir) //
+        .withCliOptions("--builder", "smart") //
+        .withCliOptions("-e", "-T2") //
+        .execute("clean", "package", "io.takari.maven.smartbuilder.tests:aggregator-plugin:0.1-SNAPSHOT:aggregate");
+
+    result.assertErrorFreeLog();
+
+    assertFilesPresent(basedir, "target/aggregator.txt");
+    assertFilesNotPresent(basedir, //
+        "basic-it-module-a/target/aggregator.txt", //
+        "basic-it-module-b/target/aggregator.txt", //
+        "basic-it-module-c/target/aggregator.txt");
   }
 }

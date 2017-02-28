@@ -1,5 +1,14 @@
 package io.takari.maven.builder.smart.its;
 
+import static io.takari.maven.testing.TestResources.assertFilesNotPresent;
+import static io.takari.maven.testing.TestResources.assertFilesPresent;
+
+import java.io.File;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import io.takari.maven.testing.TestProperties;
 import io.takari.maven.testing.TestResources;
 import io.takari.maven.testing.executor.MavenExecution;
@@ -8,17 +17,6 @@ import io.takari.maven.testing.executor.MavenRuntime;
 import io.takari.maven.testing.executor.MavenRuntime.MavenRuntimeBuilder;
 import io.takari.maven.testing.executor.MavenVersions;
 import io.takari.maven.testing.executor.junit.MavenJUnitTestRunner;
-
-import static io.takari.maven.testing.TestResources.*;
-
-import java.io.File;
-import java.io.FileOutputStream;
-
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import static org.junit.Assert.*;
 
 @RunWith(MavenJUnitTestRunner.class)
 @MavenVersions({"3.3.1", "3.3.9"})
@@ -39,9 +37,6 @@ public class SmartBuilderIntegrationTest {
   @Test
   public void testBasic() throws Exception {
     File basedir = resources.getBasedir("basic-it");
-    File timingFile = new File(basedir, ".mvn/timing.properties");
-
-    assertEquals("timingFile.exists", false, timingFile.exists()); // sanity check
 
     MavenExecution execution = verifier.forProject(basedir) //
         .withCliOptions("--builder", "smart") //
@@ -51,15 +46,6 @@ public class SmartBuilderIntegrationTest {
 
     MavenExecutionResult result = execution.execute("package");
     result.assertErrorFreeLog();
-    assertEquals("timingFile.exists", false, timingFile.isFile());
-
-    new FileOutputStream(timingFile).close();
-
-    result = execution.execute("package");
-    result.assertErrorFreeLog();
-
-    assertEquals("timingFile.exists", true, timingFile.isFile());
-    assertTrue("timingFile.length > 0", timingFile.length() > 0);
   }
 
   @Test

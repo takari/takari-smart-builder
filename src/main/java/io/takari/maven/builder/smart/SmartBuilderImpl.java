@@ -15,7 +15,6 @@ package io.takari.maven.builder.smart;
  * the License.
  */
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -177,11 +176,6 @@ class SmartBuilderImpl {
 
     final long buildStopwatchEnd = System.currentTimeMillis();
 
-    try {
-      ProjectComparator.writeServiceTimes(rootSession, projectsBuildMetrics);
-    } catch (IOException e) {
-      throw new ExecutionException(e);
-    }
 
     if (isProfiling()) {
       report(buildStopwatchEnd - buildStopwatch);

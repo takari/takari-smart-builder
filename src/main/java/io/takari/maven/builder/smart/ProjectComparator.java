@@ -2,12 +2,18 @@ package io.takari.maven.builder.smart;
 
 import io.takari.maven.builder.smart.BuildMetrics.Timer;
 
-import java.io.*;
-import java.util.*;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Project comparator (factory) that uses project build time to establish build order.
@@ -32,8 +38,7 @@ class ProjectComparator {
 
   public static Comparator<MavenProject> create(MavenSession session) {
     final ProjectDependencyGraph dependencyGraph = session.getProjectDependencyGraph();
-    final Map<String, Long> historicalServiceTimes = readServiceTimes(session);
-    return create(dependencyGraph, historicalServiceTimes);
+    return create(dependencyGraph, ImmutableMap.of());
   }
 
   // public for unit testing
@@ -88,15 +93,6 @@ class ProjectComparator {
     return average;
   }
 
-  private static long parseServiceTime(String string) {
-    try {
-      long value = Long.parseLong(string);
-      return value > 0 ? value : 0;
-    } catch (NumberFormatException e) {
-      return 0;
-    }
-  }
-
   private static Long getServiceTime(Map<String, Long> serviceTimes, MavenProject project,
       long defaultServiceTime) {
     Long serviceTime = serviceTimes.get(id(project));
@@ -132,28 +128,6 @@ class ProjectComparator {
     return weight;
   }
 
-  private static Map<String, Long> readServiceTimes(MavenSession session) {
-    Map<String, Long> result = new HashMap<>();
-    final File timingFile = getTimingFile(session);
-    Properties properties = new Properties();
-    if (timingFile != null) {
-      try (InputStream is = new FileInputStream(timingFile)) {
-        properties.load(is);
-      } catch (IOException e) {
-        // that's ok
-      }
-      for (String id : properties.stringPropertyNames()) {
-        result.put(id, parseServiceTime(properties.getProperty(id)));
-      }
-    }
-    return result;
-  }
-
-  private static File getTimingFile(MavenSession session) {
-    File mvndir = new File(session.getRequest().getMultiModuleProjectDirectory(), ".mvn");
-    return mvndir.isDirectory() ? new File(mvndir, "timing.properties") : null;
-  }
-
   public static String id(MavenProject project) {
     StringBuilder sb = new StringBuilder();
     sb.append(project.getGroupId());
@@ -162,21 +136,6 @@ class ProjectComparator {
     sb.append(':');
     sb.append(project.getVersion());
     return sb.toString();
-  }
-
-  public static void writeServiceTimes(MavenSession session, ProjectsBuildMetrics metrics)
-      throws IOException {
-    final File timingFile = getTimingFile(session);
-    if (timingFile != null && timingFile.isFile()) {
-      Properties properties = new Properties();
-      for (MavenProject project : metrics.getProjects()) {
-        long serviceTime = metrics.getBuildMetrics(project).getMetricMillis(Timer.SERVICETIME_MS);
-        properties.put(id(project), Long.toString(serviceTime));
-      }
-      try (OutputStream os = new FileOutputStream(timingFile)) {
-        properties.store(os, null);
-      }
-    }
   }
 
   public static Comparator<MavenProject> create(ProjectDependencyGraph projectDependencyGraph,

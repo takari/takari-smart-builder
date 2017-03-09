@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
@@ -70,9 +71,10 @@ class ReactorBuildStats {
 
   public void recordBottlenecks(Set<MavenProject> projects, int degreeOfConcurrency,
       long durationNanos) {
-    // each project's "share" of wasted time
-    long waste = durationNanos * (degreeOfConcurrency - projects.size()) / projects.size();
-    projects.forEach(p -> bottleneckTimes.get(projectGA(p)).addAndGet(waste));
+    // only projects that result in single-threaded builds
+    if (projects.size() == 1) {
+      projects.forEach(p -> bottleneckTimes.get(projectGA(p)).addAndGet(durationNanos));
+    }
   }
 
   //
@@ -94,32 +96,64 @@ class ReactorBuildStats {
 
   public <K> String renderCriticalPath(DependencyGraph<K> graph, Function<K, String> toKey) {
     StringBuilder result = new StringBuilder();
-    result.append("Build critical path service times (and bottleneck times)\n");
-    Comparator<K> comparator = ProjectComparator.create0(graph, serviceTimes, toKey);
-    List<K> rootProjects = new ArrayList<>();
-    for (K project : graph.getSortedProjects()) {
-      if (graph.getUpstreamProjects(project).isEmpty()) {
-        rootProjects.add(project);
-      }
-    }
-    List<K> criticalPath = calculateCriticalPath(rootProjects, comparator, graph);
-    long totalServiceTime = 0;
-    for (K project : criticalPath) {
-      String key = toKey.apply(project);
-      final long serviceTime = serviceTimes.get(key).get();
-      final long bottleneckTime = bottleneckTimes.get(key).get();
-      totalServiceTime += serviceTime;
-      result.append(String.format("   %-60s %s", key, formatDuration(serviceTime)));
-      if (bottleneckTime > 0) {
-        result.append(String.format(" (%s)", formatDuration(bottleneckTime)));
-      }
+
+    // render critical path
+
+    long criticalPathServiceTime = 0;
+    result.append("Build critical path service times (and bottleneck** times):");
+    for (K project : calculateCriticalPath(graph, toKey)) {
       result.append('\n');
+      String key = toKey.apply(project);
+      criticalPathServiceTime += serviceTimes.get(key).get();
+      appendProjectTimes(result, key);
+    }
+    result.append(String.format("\nBuild critical path total service time %s",
+        formatDuration(criticalPathServiceTime)));
+
+    // render bottleneck projects
+
+    List<String> bottleneckProjects = getBottleneckProjects();
+    if (!bottleneckProjects.isEmpty()) {
+      long bottleneckTotalTime = 0;
+      result.append("\nBuild bottleneck projects service times (and bottleneck** times):");
+      for (String bottleneck : bottleneckProjects) {
+        result.append('\n');
+        bottleneckTotalTime += bottleneckTimes.get(bottleneck).get();
+        appendProjectTimes(result, bottleneck);
+      }
+      result.append(
+          String.format("\nBuild bottlenecks total time %s", formatDuration(bottleneckTotalTime)));
     }
 
-    result.append(String.format("Build critical path total service time %s",
-        formatDuration(totalServiceTime)));
-
+    result.append("\n** Bottlenecks are projects that limit build concurrency");
+    result.append("\n   removing bottlenecks improves overall build time");
     return result.toString();
+  }
+
+  private void appendProjectTimes(StringBuilder result, String project) {
+    final long serviceTime = serviceTimes.get(project).get();
+    final long bottleneckTime = bottleneckTimes.get(project).get();
+    result.append(String.format("   %-60s %s", project, formatDuration(serviceTime)));
+    if (bottleneckTime > 0) {
+      result.append(String.format(" (%s)", formatDuration(bottleneckTime)));
+    }
+  }
+
+  private List<String> getBottleneckProjects() {
+    Comparator<String> comparator = (a, b) -> {
+      long ta = bottleneckTimes.get(a).longValue();
+      long tb = bottleneckTimes.get(b).longValue();
+      if (tb > ta) {
+        return 1;
+      } else if (tb < ta) {
+        return -1;
+      }
+      return 0;
+    };
+    return bottleneckTimes.keySet().stream() //
+        .sorted(comparator) //
+        .filter(project -> bottleneckTimes.get(project).get() > 0) //
+        .collect(Collectors.toList());
   }
 
   private String formatDuration(long nanos) {
@@ -127,8 +161,14 @@ class ReactorBuildStats {
     return String.format("%5d s", secs);
   }
 
-  private <K> List<K> calculateCriticalPath(Collection<K> rootProjects, Comparator<K> comparator,
-      DependencyGraph<K> graph) {
+  private <K> List<K> calculateCriticalPath(DependencyGraph<K> graph, Function<K, String> toKey) {
+    Comparator<K> comparator = ProjectComparator.create0(graph, serviceTimes, toKey);
+    List<K> rootProjects = new ArrayList<>();
+    for (K project : graph.getSortedProjects()) {
+      if (graph.getUpstreamProjects(project).isEmpty()) {
+        rootProjects.add(project);
+      }
+    }
     List<K> criticalPath = new ArrayList<>();
     K project = getCriticalProject(rootProjects, comparator);
     do {

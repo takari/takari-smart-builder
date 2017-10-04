@@ -24,6 +24,8 @@
     <mavenVersion>3.3.1</mavenVersion>
     <pluginTestingVersion>2.9.1</pluginTestingVersion>
     <takari.javaSourceVersion>1.8</takari.javaSourceVersion>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
 
   <dependencies>

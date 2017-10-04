@@ -17,7 +17,7 @@ public class ProjectComparatorTest extends AbstractSmartBuilderTest {
     TestProjectDependencyGraph graph = new TestProjectDependencyGraph(a, b, c);
     graph.addDependency(b, a);
 
-    Comparator<MavenProject> cmp = ProjectComparator.create0(graph, new HashMap<>(), p -> id(p));
+    Comparator<MavenProject> cmp = ProjectComparator.create0(graph, new HashMap<>(), ProjectComparator::id);
 
     Queue<MavenProject> queue = new PriorityQueue<>(3, cmp);
     queue.add(a);
@@ -40,7 +40,7 @@ public class ProjectComparatorTest extends AbstractSmartBuilderTest {
     serviceTimes.put(id(b), new AtomicLong(1L));
     serviceTimes.put(id(c), new AtomicLong(3L));
 
-    Comparator<MavenProject> cmp = ProjectComparator.create0(graph, serviceTimes, p -> id(p));
+    Comparator<MavenProject> cmp = ProjectComparator.create0(graph, serviceTimes, ProjectComparator::id);
 
     Queue<MavenProject> queue = new PriorityQueue<>(3, cmp);
     queue.add(a);

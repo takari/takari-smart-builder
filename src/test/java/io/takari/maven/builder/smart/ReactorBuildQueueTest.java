@@ -44,7 +44,7 @@ public class ReactorBuildQueueTest extends AbstractSmartBuilderTest {
     assertProjects(schl.getRootProjects(), a, c);
     Assert.assertFalse(schl.isEmpty());
 
-    assertProjects(schl.onProjectFinish(a), new MavenProject[0]);
+    assertProjects(schl.onProjectFinish(a));
     Assert.assertFalse(schl.isEmpty());
 
     assertProjects(schl.onProjectFinish(c), b);

@@ -73,7 +73,7 @@ public class ProjectExecutorServiceTest extends AbstractSmartBuilderTest {
     serviceTimes.put(id(b), new AtomicLong(1L));
     serviceTimes.put(id(c), new AtomicLong(3L));
 
-    Comparator<MavenProject> cmp = ProjectComparator.create0(graph, serviceTimes, p -> id(p));
+    Comparator<MavenProject> cmp = ProjectComparator.create0(graph, serviceTimes, ProjectComparator::id);
 
     PausibleProjectExecutorService executor = new PausibleProjectExecutorService(1, cmp);
 

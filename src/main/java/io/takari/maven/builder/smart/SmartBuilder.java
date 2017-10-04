@@ -1,30 +1,20 @@
 package io.takari.maven.builder.smart;
 
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-
-import javax.inject.Inject;
-import javax.inject.Named;
-import javax.inject.Singleton;
-
+import com.google.common.base.Joiner;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.execution.ProjectDependencyGraph;
-import org.apache.maven.lifecycle.internal.LifecycleModuleBuilder;
-import org.apache.maven.lifecycle.internal.ProjectBuildList;
-import org.apache.maven.lifecycle.internal.ReactorBuildStatus;
-import org.apache.maven.lifecycle.internal.ReactorContext;
-import org.apache.maven.lifecycle.internal.TaskSegment;
+import org.apache.maven.lifecycle.internal.*;
 import org.apache.maven.lifecycle.internal.builder.Builder;
 import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Joiner;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Trivial Maven {@link Builder} implementation. All interesting stuff happens in
@@ -40,7 +30,6 @@ public class SmartBuilder implements Builder {
 
   private final LifecycleModuleBuilder moduleBuilder;
 
-  
   @Inject
   public SmartBuilder(LifecycleModuleBuilder moduleBuilder) {
     this.moduleBuilder = moduleBuilder;
@@ -60,13 +49,15 @@ public class SmartBuilder implements Builder {
     logger.info("Total number of projects is " + graph.getSortedProjects().size());
 
     // the actual build execution
-    List<Map.Entry<TaskSegment, ReactorBuildStats>> allstats = new ArrayList<>();
+    List<Map.Entry<TaskSegment, ReactorBuildStats>> allStats = new ArrayList<>();
+
     for (TaskSegment taskSegment : taskSegments) {
       Set<MavenProject> projects = projectBuilds.getByTaskSegment(taskSegment).getProjects();
+
       ReactorBuildStats stats =
           new SmartBuilderImpl(moduleBuilder, session, reactorContext, taskSegment, projects)
               .build();
-      allstats.add(new AbstractMap.SimpleEntry<>(taskSegment, stats));
+      allStats.add(new AbstractMap.SimpleEntry<>(taskSegment, stats));
     }
 
     if (session.getResult().hasExceptions()) {
@@ -74,36 +65,34 @@ public class SmartBuilder implements Builder {
       return;
     }
 
-    // log stats of each task segment
-    for (Map.Entry<TaskSegment, ReactorBuildStats> entry : allstats) {
-      TaskSegment taskSegment = entry.getKey();
-      ReactorBuildStats stats = entry.getValue();
-      Set<MavenProject> projects = projectBuilds.getByTaskSegment(taskSegment).getProjects();
-
-      logger.info("Task segment {}, number of projects {}", taskSegment, projects.size());
-
-      final long walltimeReactor = stats.walltimeTime(TimeUnit.NANOSECONDS);
-      final long walltimeService = stats.totalServiceTime(TimeUnit.NANOSECONDS);
-      final String effectiveConcurrency =
-          String.format("%2.2f", ((double) walltimeService) / walltimeReactor);
-      logger.info(
-          "Segment walltime {} s, segment projects service time {} s, effective/maximum degree of concurrency {}/{}",
-          TimeUnit.NANOSECONDS.toSeconds(walltimeReactor),
-          TimeUnit.NANOSECONDS.toSeconds(walltimeService), effectiveConcurrency,
-          degreeOfConcurrency);
-
-      if (projects.size() > 1 && isProfiling(session)) {
-        logger.info(stats.renderCriticalPath(graph));
-      }
-    }
+      // log stats of each task segment
+      allStats.forEach((entry) -> {
+          TaskSegment taskSegment = entry.getKey();
+          ReactorBuildStats stats = entry.getValue();
+          Set<MavenProject> projects = projectBuilds.getByTaskSegment(taskSegment).getProjects();
+          logger.info("Task segment {}, number of projects {}", taskSegment, projects.size());
+          final long walltimeReactor = stats.walltimeTime(TimeUnit.NANOSECONDS);
+          final long walltimeService = stats.totalServiceTime(TimeUnit.NANOSECONDS);
+          final String effectiveConcurrency =
+                  String.format("%2.2f", ((double) walltimeService) / walltimeReactor);
+          logger.info(
+                  "Segment walltime {} s, segment projects service time {} s, effective/maximum degree of concurrency {}/{}",
+                  TimeUnit.NANOSECONDS.toSeconds(walltimeReactor),
+                  TimeUnit.NANOSECONDS.toSeconds(walltimeService), effectiveConcurrency,
+                  degreeOfConcurrency);
+          if (projects.size() > 1 && isProfiling(session)) {
+              logger.info(stats.renderCriticalPath(graph));
+          }
+      });
   }
 
   private boolean isProfiling(MavenSession session) {
     String value = session.getUserProperties().getProperty(PROP_PROFILING);
+
     if (value == null) {
       value = session.getSystemProperties().getProperty(PROP_PROFILING);
     }
+
     return Boolean.parseBoolean(value);
   }
-
 }

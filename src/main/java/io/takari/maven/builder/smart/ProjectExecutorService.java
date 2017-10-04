@@ -1,21 +1,11 @@
 package io.takari.maven.builder.smart;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.maven.lifecycle.internal.BuildThreadFactory;
 import org.apache.maven.project.MavenProject;
+
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.Stream;
 
 /**
  * {@link ThreadPoolExecutor} wrapper.
@@ -25,12 +15,12 @@ import org.apache.maven.project.MavenProject;
  */
 class ProjectExecutorService {
 
-  static interface ProjectRunnable extends Runnable {
-    public MavenProject getProject();
+  interface ProjectRunnable extends Runnable {
+    MavenProject getProject();
   }
 
   private class ProjectFutureTask extends FutureTask<MavenProject> implements ProjectRunnable {
-    private ProjectRunnable task;
+    private final ProjectRunnable task;
 
     public ProjectFutureTask(ProjectRunnable task) {
       super(task, task.getProject());
@@ -46,7 +36,7 @@ class ProjectExecutorService {
     public MavenProject getProject() {
       return task.getProject();
     }
-  };
+  }
 
   private final ExecutorService executor;
 
@@ -57,13 +47,8 @@ class ProjectExecutorService {
   public ProjectExecutorService(final int degreeOfConcurrency,
       final Comparator<MavenProject> projectComparator) {
 
-    this.taskComparator = new Comparator<Runnable>() {
-      @Override
-      public int compare(Runnable o1, Runnable o2) {
-        return projectComparator.compare(((ProjectRunnable) o1).getProject(),
-            ((ProjectRunnable) o2).getProject());
-      }
-    };
+    this.taskComparator = (o1, o2) -> projectComparator.compare(((ProjectRunnable) o1).getProject(),
+        ((ProjectRunnable) o2).getProject());
 
     final BlockingQueue<Runnable> executorWorkQueue =
         new PriorityBlockingQueue<>(degreeOfConcurrency, taskComparator);
@@ -86,11 +71,9 @@ class ProjectExecutorService {
     // when there are available worker threads, tasks are immediately executed, i.e. bypassed the
     // ordered queued. need to sort tasks, such that submission order matches desired execution
     // order
-    ArrayList<ProjectRunnable> sorted = new ArrayList<>(tasks);
-    Collections.sort(sorted, taskComparator);
-    for (ProjectRunnable task : sorted) {
-      executor.execute(new ProjectFutureTask(task));
-    }
+    Optional.ofNullable(tasks).ifPresent(localTasks -> {
+      Stream.of(localTasks).flatMap(Collection::stream).sorted(taskComparator).forEach(task -> executor.execute(new ProjectFutureTask(task)));
+    });
   }
 
   /**

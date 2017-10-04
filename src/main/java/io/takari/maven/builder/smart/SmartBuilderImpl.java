@@ -15,12 +15,7 @@ package io.takari.maven.builder.smart;
  * the License.
  */
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-
+import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
 import org.apache.maven.execution.BuildFailure;
 import org.apache.maven.execution.BuildSuccess;
 import org.apache.maven.execution.BuildSummary;
@@ -33,7 +28,11 @@ import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 /**
  * Maven {@link Builder} implementation that schedules execution of the reactor modules on the build
@@ -73,6 +72,7 @@ class SmartBuilderImpl {
     @Override
     public void run() {
       final long start = System.nanoTime();
+
       try {
         buildProject(project);
       } finally {
@@ -93,7 +93,7 @@ class SmartBuilderImpl {
     this.reactorContext = reactorContext;
     this.taskSegment = taskSegment;
 
-    this.degreeOfConcurrency = Integer.valueOf(session.getRequest().getDegreeOfConcurrency());
+    this.degreeOfConcurrency = session.getRequest().getDegreeOfConcurrency();
 
     final Comparator<MavenProject> projectComparator = ProjectComparator.create(session);
 
@@ -114,19 +114,24 @@ class SmartBuilderImpl {
     int submittedCount = rootProjects.size();
     while (submittedCount > 0) {
       Set<MavenProject> bottlenecks = null;
+
       if (submittedCount < degreeOfConcurrency) {
         bottlenecks = reactorBuildQueue.getReadyProjects();
       }
 
       try {
         MavenProject completedProject = executor.take();
+
         if (bottlenecks != null) {
           stats.recordBottlenecks(bottlenecks, degreeOfConcurrency,
               System.nanoTime() - timstampSubmit);
         }
+
         logCompleted(completedProject);
         Set<MavenProject> readyProjects = reactorBuildQueue.onProjectFinish(completedProject);
+
         submitAll(readyProjects);
+
         timstampSubmit = System.nanoTime();
         submittedCount += (readyProjects.size() - 1);
 
@@ -149,19 +154,24 @@ class SmartBuilderImpl {
     int blockedCount = reactorBuildQueue.getBlockedCount();
     int finishedCount = reactorBuildQueue.getFinishedCount();
     int readyCount = reactorBuildQueue.getReadyCount();
+
     String runningProjects = "";
+
     if (readyCount < degreeOfConcurrency && blockedCount > 0) {
-      StringBuffer sb = new StringBuffer();
-      sb.append('[');
-      for (MavenProject project : reactorBuildQueue.getReadyProjects()) {
+      StringBuilder sb = new StringBuilder("[");
+
+      reactorBuildQueue.getReadyProjects().stream().forEach(project -> {
         if (sb.length() > 1) {
           sb.append(' ');
         }
         sb.append(projectGA(project));
-      }
+      });
+
       sb.append(']');
+
       runningProjects = sb.toString();
     }
+
     logger.info("Builder state: blocked={} finished={} ready-or-running={} {}", blockedCount,
         finishedCount, readyCount, runningProjects);
   }
@@ -169,6 +179,7 @@ class SmartBuilderImpl {
   private void logCompleted(MavenProject project) {
     BuildSummary buildSummary = rootSession.getResult().getBuildSummary(project);
     String message = "SKIPPED";
+
     if (buildSummary instanceof BuildSuccess) {
       message = "SUCCESS";
     } else if (buildSummary instanceof BuildFailure) {
@@ -177,6 +188,7 @@ class SmartBuilderImpl {
       logger.warn("Unexpected project build summary class {}", buildSummary.getClass());
       message = "UNKNOWN";
     }
+
     logger.info("{} build of project {}", message, projectGA(project));
   }
 
@@ -189,11 +201,10 @@ class SmartBuilderImpl {
   }
 
   private void submitAll(Set<MavenProject> readyProjects) {
-    List<ProjectBuildTask> tasks = new ArrayList<>();
-    for (MavenProject project : readyProjects) {
-      tasks.add(new ProjectBuildTask(project));
-      logger.debug("Ready {}", projectGA(project));
-    }
+    List<ProjectBuildTask> tasks = readyProjects.stream().map(project -> {
+      logger.debug("Ready {}", projectGA(project));  return new ProjectBuildTask(project);
+    }).collect(Collectors.toList());
+
     executor.submitAll(tasks);
   }
 
@@ -202,6 +213,7 @@ class SmartBuilderImpl {
 
     try {
       MavenSession copiedSession = rootSession.clone();
+
       lifecycleModuleBuilder.buildProject(copiedSession, rootSession, reactorContext, project,
           taskSegment);
     } catch (RuntimeException ex) {
@@ -210,5 +222,4 @@ class SmartBuilderImpl {
           .addException(new RuntimeException(project.getName() + ": " + ex.getMessage(), ex));
     }
   }
-
 }

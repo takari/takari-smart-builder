@@ -7,7 +7,7 @@ import org.junit.Assert;
 
 abstract class AbstractSmartBuilderTest {
   protected void assertProjects(Collection<MavenProject> actual, MavenProject... expected) {
-    Assert.assertEquals(new HashSet<MavenProject>(Arrays.asList(expected)), new HashSet<>(actual));
+    Assert.assertEquals(new HashSet<>(Arrays.asList(expected)), new HashSet<>(actual));
   }
 
   protected MavenProject newProject(String artifactId) {

@@ -25,9 +25,9 @@ public class SmartBuilderIntegrationTest {
   @Rule
   public final TestResources resources = new TestResources();
 
-  public final TestProperties proprties = new TestProperties();;
+  public final TestProperties proprties = new TestProperties();
 
-  public final MavenRuntime verifier;
+    public final MavenRuntime verifier;
 
   public SmartBuilderIntegrationTest(MavenRuntimeBuilder runtimeBuilder) throws Exception {
     this.verifier = runtimeBuilder.withExtension(new File("target/classes").getCanonicalFile()) //

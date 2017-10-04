@@ -1,14 +1,13 @@
 package io.takari.maven.builder.smart;
 
+import com.google.common.collect.ImmutableSet;
+import org.apache.maven.execution.ProjectDependencyGraph;
+import org.apache.maven.project.MavenProject;
+
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import org.apache.maven.execution.ProjectDependencyGraph;
-import org.apache.maven.project.MavenProject;
-
-import com.google.common.collect.ImmutableSet;
 
 /**
  * Reactor build queue manages reactor modules that are waiting for their upstream dependencies
@@ -25,25 +24,25 @@ class ReactorBuildQueue {
   /**
    * Projects waiting for other projects to finish
    */
-  private final Set<MavenProject> blockedProjects = new HashSet<MavenProject>();
+  private final Set<MavenProject> blockedProjects = new HashSet<>();
 
-  private final Set<MavenProject> finishedProjects = new HashSet<MavenProject>();
+  private final Set<MavenProject> finishedProjects = new HashSet<>();
 
   public ReactorBuildQueue(Collection<MavenProject> projects,
       ProjectDependencyGraph dependencyGraph) {
     this.dependencyGraph = dependencyGraph;
 
-    final Set<MavenProject> rootProjects = new HashSet<MavenProject>();
+    final Set<MavenProject> localRootProjects = new HashSet<>();
 
-    for (MavenProject project : projects) {
-      if (dependencyGraph.getUpstreamProjects(project, false).isEmpty()) {
-        rootProjects.add(project);
-      } else {
-        blockedProjects.add(project);
-      }
-    }
+    projects.forEach((project) -> {
+        if (dependencyGraph.getUpstreamProjects(project, false).isEmpty()) {
+            localRootProjects.add(project);
+        } else {
+            blockedProjects.add(project);
+        }
+    });
 
-    this.rootProjects = ImmutableSet.copyOf(rootProjects);
+    this.rootProjects = ImmutableSet.copyOf(localRootProjects);
     this.projects = ImmutableSet.copyOf(projects);
   }
 
@@ -53,13 +52,15 @@ class ReactorBuildQueue {
    */
   public Set<MavenProject> onProjectFinish(MavenProject project) {
     finishedProjects.add(project);
-    Set<MavenProject> downstreamProjects = new HashSet<MavenProject>();
-    for (MavenProject successor : getDownstreamProjects(project)) {
-      if (blockedProjects.contains(successor) && isProjectReady(successor)) {
+    Set<MavenProject> downstreamProjects = new HashSet<>();
+   
+    getDownstreamProjects(project).stream().filter(successor -> blockedProjects.contains(successor) && isProjectReady(successor)).map(successor -> {
         blockedProjects.remove(successor);
-        downstreamProjects.add(successor);
-      }
-    }
+          return successor;
+      }).forEachOrdered(successor -> {
+          downstreamProjects.add(successor);
+      });
+
     return downstreamProjects;
   }
 
@@ -68,12 +69,7 @@ class ReactorBuildQueue {
   }
 
   private boolean isProjectReady(MavenProject project) {
-    for (MavenProject upstream : dependencyGraph.getUpstreamProjects(project, false)) {
-      if (!finishedProjects.contains(upstream)) {
-        return false;
-      }
-    }
-    return true;
+    return dependencyGraph.getUpstreamProjects(project, false).stream().noneMatch(upstream -> !finishedProjects.contains(upstream));
   }
 
   /**
@@ -103,10 +99,9 @@ class ReactorBuildQueue {
   }
 
   public Set<MavenProject> getReadyProjects() {
-    Set<MavenProject> projects = new HashSet<>(this.projects);
-    projects.removeAll(blockedProjects);
-    projects.removeAll(finishedProjects);
-    return projects;
+    Set<MavenProject> localProjects = new HashSet<>(this.projects);
+    localProjects.removeAll(blockedProjects);
+    localProjects.removeAll(finishedProjects);
+    return localProjects;
   }
-
 }

@@ -1,9 +1,9 @@
 package io.takari.maven.builder.smart;
 
-import java.util.List;
-
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
+
+import java.util.List;
 
 interface DependencyGraph<K> {
   List<K> getDownstreamProjects(K project);

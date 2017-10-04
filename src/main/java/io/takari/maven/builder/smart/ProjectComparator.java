@@ -1,19 +1,13 @@
 package io.takari.maven.builder.smart;
 
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
-
+import com.google.common.collect.ImmutableMap;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
 
-import com.google.common.collect.ImmutableMap;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 /**
  * Project comparator (factory) that uses project build time to establish build order.
@@ -38,7 +32,7 @@ class ProjectComparator {
 
   public static Comparator<MavenProject> create(MavenSession session) {
     final ProjectDependencyGraph dependencyGraph = session.getProjectDependencyGraph();
-    return create0(DependencyGraph.fromMaven(dependencyGraph), ImmutableMap.of(), p -> id(p));
+    return create0(DependencyGraph.fromMaven(dependencyGraph), ImmutableMap.of(), ProjectComparator::id);
   }
 
   static <K> Comparator<K> create0(final DependencyGraph<K> dependencyGraph,
@@ -48,29 +42,29 @@ class ProjectComparator {
     final Map<K, Long> serviceTimes = new HashMap<>();
 
     final Set<K> rootProjects = new HashSet<>();
-    for (K project : dependencyGraph.getSortedProjects()) {
-      Long serviceTime = getServiceTime(historicalServiceTimes, project, defaultServiceTime, toKey);
-      serviceTimes.put(project, serviceTime);
-      if (dependencyGraph.getUpstreamProjects(project).isEmpty()) {
-        rootProjects.add(project);
-      }
-    }
+
+    dependencyGraph.getSortedProjects().stream().map(project -> {
+        Long serviceTime = getServiceTime(historicalServiceTimes, project, defaultServiceTime, toKey);
+        serviceTimes.put(project, serviceTime);
+          return project;
+      }).filter(project -> dependencyGraph.getUpstreamProjects(project).isEmpty()).forEachOrdered((project) -> {
+          rootProjects.add(project);
+      });
 
     final Map<K, Long> projectWeights =
         calculateWeights(dependencyGraph, serviceTimes, rootProjects);
 
-    return new Comparator<K>() {
-      @Override
-      public int compare(K o1, K o2) {
-        long delta = projectWeights.get(o2) - projectWeights.get(o1);
-        if (delta > 0) {
-          return 1;
-        } else if (delta < 0) {
-          return -1;
-        }
-        // id comparison guarantees stable ordering during unit tests
-        return toKey.apply(o2).compareTo(toKey.apply(o1));
+    return (o1, o2) -> {
+      long delta = projectWeights.get(o2) - projectWeights.get(o1);
+
+      if (delta > 0) {
+        return 1;
+      } else if (delta < 0) {
+        return -1;
       }
+
+      // id comparison guarantees stable ordering during unit tests
+      return toKey.apply(o2).compareTo(toKey.apply(o1));
     };
   }
 
@@ -82,13 +76,17 @@ class ProjectComparator {
         count++;
       }
     }
+
     long average = 0;
+
     if (count > 0) {
       average = sum / count;
     }
+
     if (average == 0) {
       average = 1; // arbitrary number
     }
+
     return average;
   }
 
@@ -100,10 +98,13 @@ class ProjectComparator {
 
   private static <K> Map<K, Long> calculateWeights(DependencyGraph<K> dependencyGraph,
       Map<K, Long> serviceTimes, Collection<K> rootProjects) {
+
     Map<K, Long> weights = new HashMap<>();
-    for (K rootProject : rootProjects) {
-      calculateWeights(dependencyGraph, serviceTimes, rootProject, weights);
-    }
+
+    rootProjects.forEach(rootProject -> {
+        calculateWeights(dependencyGraph, serviceTimes, rootProject, weights);
+      });
+
     return weights;
   }
 
@@ -114,15 +115,19 @@ class ProjectComparator {
   private static <K> long calculateWeights(DependencyGraph<K> dependencyGraph,
       Map<K, Long> serviceTimes, K project, Map<K, Long> weights) {
     long weight = serviceTimes.get(project);
+
     for (K successor : dependencyGraph.getDownstreamProjects(project)) {
       long successorWeight;
+
       if (weights.containsKey(successor)) {
         successorWeight = weights.get(successor);
       } else {
         successorWeight = calculateWeights(dependencyGraph, serviceTimes, successor, weights);
       }
+
       weight = Math.max(weight, serviceTimes.get(project) + successorWeight);
     }
+
     weights.put(project, weight);
     return weight;
   }
@@ -134,7 +139,7 @@ class ProjectComparator {
     sb.append(project.getArtifactId());
     sb.append(':');
     sb.append(project.getVersion());
+
     return sb.toString();
   }
-
 }

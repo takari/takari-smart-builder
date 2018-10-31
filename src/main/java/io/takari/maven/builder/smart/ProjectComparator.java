@@ -1,9 +1,11 @@
 package io.takari.maven.builder.smart;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -12,8 +14,6 @@ import java.util.function.Function;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
-
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Project comparator (factory) that uses project build time to establish build order.
@@ -38,7 +38,7 @@ class ProjectComparator {
 
   public static Comparator<MavenProject> create(MavenSession session) {
     final ProjectDependencyGraph dependencyGraph = session.getProjectDependencyGraph();
-    return create0(DependencyGraph.fromMaven(dependencyGraph), ImmutableMap.of(), p -> id(p));
+    return create0(DependencyGraph.fromMaven(dependencyGraph), Collections.emptyMap(), p -> id(p));
   }
 
   static <K> Comparator<K> create0(final DependencyGraph<K> dependencyGraph,

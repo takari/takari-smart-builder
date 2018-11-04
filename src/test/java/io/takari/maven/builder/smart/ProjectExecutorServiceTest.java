@@ -68,7 +68,7 @@ public class ProjectExecutorServiceTest extends AbstractSmartBuilderTest {
     TestProjectDependencyGraph graph = new TestProjectDependencyGraph(a, b, c);
     graph.addDependency(b, a);
 
-    HashMap<String, AtomicLong> serviceTimes = new HashMap<>();
+    HashMap<String, AtomicLong> serviceTimes = new LinkedHashMap<>();
     serviceTimes.put(id(a), new AtomicLong(1L));
     serviceTimes.put(id(b), new AtomicLong(1L));
     serviceTimes.put(id(c), new AtomicLong(3L));

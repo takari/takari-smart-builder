@@ -24,8 +24,6 @@ import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Joiner;
-
 /**
  * Trivial Maven {@link Builder} implementation. All interesting stuff happens in
  * {@link SmartBuilderImpl} .
@@ -55,7 +53,7 @@ public class SmartBuilder implements Builder {
 
     // log overall build info
     final int degreeOfConcurrency = session.getRequest().getDegreeOfConcurrency();
-    logger.info("Task segments : " + Joiner.on(" ").join(taskSegments));
+    logger.info("Task segments : " + taskSegments);
     logger.info("Build maximum degree of concurrency is " + degreeOfConcurrency);
     logger.info("Total number of projects is " + graph.getSortedProjects().size());
 

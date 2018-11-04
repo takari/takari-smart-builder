@@ -2,13 +2,12 @@ package io.takari.maven.builder.smart;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
-
-import com.google.common.collect.ImmutableSet;
 
 /**
  * Reactor build queue manages reactor modules that are waiting for their upstream dependencies
@@ -43,8 +42,8 @@ class ReactorBuildQueue {
       }
     }
 
-    this.rootProjects = ImmutableSet.copyOf(rootProjects);
-    this.projects = ImmutableSet.copyOf(projects);
+    this.rootProjects = new LinkedHashSet<>(rootProjects);
+    this.projects = new LinkedHashSet<>(projects);
   }
 
   /**
@@ -103,7 +102,7 @@ class ReactorBuildQueue {
   }
 
   public Set<MavenProject> getReadyProjects() {
-    Set<MavenProject> projects = new HashSet<>(this.projects);
+    Set<MavenProject> projects = new LinkedHashSet<>(this.projects);
     projects.removeAll(blockedProjects);
     projects.removeAll(finishedProjects);
     return projects;

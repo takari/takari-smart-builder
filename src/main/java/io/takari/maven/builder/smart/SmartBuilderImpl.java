@@ -93,7 +93,7 @@ class SmartBuilderImpl {
     this.reactorContext = reactorContext;
     this.taskSegment = taskSegment;
 
-    this.degreeOfConcurrency = Integer.valueOf(session.getRequest().getDegreeOfConcurrency());
+    this.degreeOfConcurrency = session.getRequest().getDegreeOfConcurrency();
 
     final Comparator<MavenProject> projectComparator = ProjectComparator.create(session);
 

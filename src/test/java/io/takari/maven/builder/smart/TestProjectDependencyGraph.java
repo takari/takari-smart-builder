@@ -11,7 +11,7 @@ import com.google.common.collect.ListMultimap;
 
 public class TestProjectDependencyGraph implements ProjectDependencyGraph, DependencyGraph<MavenProject> {
 
-  private final List<MavenProject> projects = new ArrayList<MavenProject>();
+  private final List<MavenProject> projects = new ArrayList<>();
 
   private final ListMultimap<MavenProject, MavenProject> downstream = ArrayListMultimap.create();
 
@@ -21,6 +21,12 @@ public class TestProjectDependencyGraph implements ProjectDependencyGraph, Depen
     if (projects != null) {
       this.projects.addAll(Arrays.asList(projects));
     }
+  }
+
+  @Override
+  public List<MavenProject> getAllProjects()
+  {
+    return projects;
   }
 
   @Override

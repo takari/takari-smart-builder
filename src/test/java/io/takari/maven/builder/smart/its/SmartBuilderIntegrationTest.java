@@ -19,13 +19,13 @@ import io.takari.maven.testing.executor.MavenVersions;
 import io.takari.maven.testing.executor.junit.MavenJUnitTestRunner;
 
 @RunWith(MavenJUnitTestRunner.class)
-@MavenVersions({"3.3.1", "3.3.9"})
+@MavenVersions({"3.6.3", "3.8.6"})
 public class SmartBuilderIntegrationTest {
 
   @Rule
   public final TestResources resources = new TestResources();
 
-  public final TestProperties proprties = new TestProperties();;
+  public final TestProperties properties = new TestProperties();;
 
   public final MavenRuntime verifier;
 

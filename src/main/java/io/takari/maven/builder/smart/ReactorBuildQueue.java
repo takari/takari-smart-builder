@@ -8,7 +8,7 @@ import java.util.Set;
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
 
-import com.google.common.collect.ImmutableSet;
+import static java.util.Collections.unmodifiableSet;
 
 /**
  * Reactor build queue manages reactor modules that are waiting for their upstream dependencies
@@ -43,8 +43,8 @@ class ReactorBuildQueue {
       }
     }
 
-    this.rootProjects = ImmutableSet.copyOf(rootProjects);
-    this.projects = ImmutableSet.copyOf(projects);
+    this.rootProjects = unmodifiableSet(rootProjects);
+    this.projects = unmodifiableSet(new HashSet<>(projects));
   }
 
   /**

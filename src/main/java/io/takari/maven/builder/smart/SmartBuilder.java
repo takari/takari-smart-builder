@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -23,8 +24,6 @@ import org.apache.maven.lifecycle.internal.builder.Builder;
 import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Joiner;
 
 /**
  * Trivial Maven {@link Builder} implementation. All interesting stuff happens in
@@ -55,9 +54,14 @@ public class SmartBuilder implements Builder {
 
     // log overall build info
     final int degreeOfConcurrency = session.getRequest().getDegreeOfConcurrency();
-    logger.info("Task segments : " + Joiner.on(" ").join(taskSegments));
-    logger.info("Build maximum degree of concurrency is " + degreeOfConcurrency);
-    logger.info("Total number of projects is " + graph.getSortedProjects().size());
+    if (logger.isInfoEnabled()) {
+      final String taskSegmentString = taskSegments.stream()
+              .map(TaskSegment::toString)
+              .collect(Collectors.joining());
+      logger.info("Task segments : " + taskSegmentString);
+      logger.info("Build maximum degree of concurrency is " + degreeOfConcurrency);
+      logger.info("Total number of projects is " + graph.getSortedProjects().size());
+    }
 
     // the actual build execution
     List<Map.Entry<TaskSegment, ReactorBuildStats>> allstats = new ArrayList<>();

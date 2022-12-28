@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -15,7 +16,7 @@ import java.util.stream.Collectors;
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
 
-import com.google.common.collect.ImmutableMap;
+import static java.util.Collections.unmodifiableMap;
 
 class ReactorBuildStats {
 
@@ -39,8 +40,8 @@ class ReactorBuildStats {
 
   private ReactorBuildStats(Map<String, AtomicLong> serviceTimes,
       Map<String, AtomicLong> bottleneckTimes) {
-    this.serviceTimes = ImmutableMap.copyOf(serviceTimes);
-    this.bottleneckTimes = ImmutableMap.copyOf(bottleneckTimes);
+    this.serviceTimes = unmodifiableMap(serviceTimes);
+    this.bottleneckTimes = unmodifiableMap(bottleneckTimes);
   }
 
   private static String projectGA(MavenProject project) {
@@ -48,13 +49,13 @@ class ReactorBuildStats {
   }
 
   public static ReactorBuildStats create(Collection<MavenProject> projects) {
-    ImmutableMap.Builder<String, AtomicLong> serviceTimes = ImmutableMap.builder();
-    ImmutableMap.Builder<String, AtomicLong> bottleneckTimes = ImmutableMap.builder();
+    Map<String, AtomicLong> serviceTimes = new ConcurrentHashMap<>();
+    Map<String, AtomicLong> bottleneckTimes = new ConcurrentHashMap<>();
     projects.stream().map(project -> projectGA(project)).forEach(key -> {
       serviceTimes.put(key, new AtomicLong());
       bottleneckTimes.put(key, new AtomicLong());
     });
-    return new ReactorBuildStats(serviceTimes.build(), bottleneckTimes.build());
+    return new ReactorBuildStats(serviceTimes, bottleneckTimes);
   }
 
   public void recordStart() {

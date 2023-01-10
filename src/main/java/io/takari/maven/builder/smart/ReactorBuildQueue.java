@@ -2,6 +2,7 @@ package io.takari.maven.builder.smart;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -29,7 +30,7 @@ class ReactorBuildQueue {
 
   private final Set<MavenProject> finishedProjects = new HashSet<MavenProject>();
 
-  public ReactorBuildQueue(Collection<MavenProject> projects,
+  public ReactorBuildQueue(Set<MavenProject> projects,
       ProjectDependencyGraph dependencyGraph) {
     this.dependencyGraph = dependencyGraph;
 
@@ -44,7 +45,17 @@ class ReactorBuildQueue {
     }
 
     this.rootProjects = unmodifiableSet(rootProjects);
-    this.projects = unmodifiableSet(new HashSet<>(projects));
+    this.projects = unmodifiableSet(projects);
+  }
+
+  /**
+   * Tests use a different API (ProjectDependencyGraph) than prod code.
+   * @param projects the projects as List.
+   * @param dependencyGraph dependency graph.
+   */
+  protected ReactorBuildQueue(List<MavenProject> projects,
+      ProjectDependencyGraph dependencyGraph) {
+    this(new LinkedHashSet<>(projects), dependencyGraph);
   }
 
   /**

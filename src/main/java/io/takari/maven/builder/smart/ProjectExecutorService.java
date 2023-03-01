@@ -1,8 +1,6 @@
 package io.takari.maven.builder.smart;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
@@ -46,7 +44,7 @@ class ProjectExecutorService {
     public MavenProject getProject() {
       return task.getProject();
     }
-  };
+  }
 
   private final ExecutorService executor;
 
@@ -57,13 +55,7 @@ class ProjectExecutorService {
   public ProjectExecutorService(final int degreeOfConcurrency,
       final Comparator<MavenProject> projectComparator) {
 
-    this.taskComparator = new Comparator<Runnable>() {
-      @Override
-      public int compare(Runnable o1, Runnable o2) {
-        return projectComparator.compare(((ProjectRunnable) o1).getProject(),
-            ((ProjectRunnable) o2).getProject());
-      }
-    };
+    this.taskComparator = Comparator.comparing(r -> ((ProjectRunnable) r).getProject(), projectComparator);
 
     final BlockingQueue<Runnable> executorWorkQueue =
         new PriorityBlockingQueue<>(degreeOfConcurrency, taskComparator);
@@ -86,11 +78,7 @@ class ProjectExecutorService {
     // when there are available worker threads, tasks are immediately executed, i.e. bypassed the
     // ordered queued. need to sort tasks, such that submission order matches desired execution
     // order
-    ArrayList<ProjectRunnable> sorted = new ArrayList<>(tasks);
-    Collections.sort(sorted, taskComparator);
-    for (ProjectRunnable task : sorted) {
-      executor.execute(new ProjectFutureTask(task));
-    }
+    tasks.stream().sorted(taskComparator).map(ProjectFutureTask::new).forEach(executor::execute);
   }
 
   /**
@@ -103,6 +91,10 @@ class ProjectExecutorService {
 
   public void shutdown() {
     executor.shutdown();
+  }
+
+  public void cancel() {
+    executor.shutdownNow();
   }
 
   // hook to allow pausing executor during unit tests

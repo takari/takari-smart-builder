@@ -6,20 +6,14 @@ package io.takari.maven.builder.smart;
  * copyright ownership. The ASF licenses this file to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance with the License. You may obtain a
  * copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software distributed under the License
  * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
 import org.apache.maven.execution.BuildFailure;
 import org.apache.maven.execution.BuildSuccess;
@@ -30,17 +24,23 @@ import org.apache.maven.lifecycle.internal.ReactorContext;
 import org.apache.maven.lifecycle.internal.TaskSegment;
 import org.apache.maven.lifecycle.internal.builder.Builder;
 import org.apache.maven.project.MavenProject;
+import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 /**
  * Maven {@link Builder} implementation that schedules execution of the reactor modules on the build
  * critical path first. Build critical path is estimated based on module build times collected
  * during a previous build, or based on module's downstream dependency trail length, if no prior
  * build time information is available.
- * 
+ *
  * @author Brian Toal
  */
 class SmartBuilderImpl {
@@ -87,17 +87,18 @@ class SmartBuilderImpl {
   }
 
   SmartBuilderImpl(LifecycleModuleBuilder lifecycleModuleBuilder, MavenSession session,
-      ReactorContext reactorContext, TaskSegment taskSegment, Set<MavenProject> projects) {
+      ReactorContext reactorContext, TaskSegment taskSegment, Set<MavenProject> projects,
+      DependencyGraph<MavenProject> graph) {
     this.lifecycleModuleBuilder = lifecycleModuleBuilder;
     this.rootSession = session;
     this.reactorContext = reactorContext;
     this.taskSegment = taskSegment;
 
-    this.degreeOfConcurrency = Integer.valueOf(session.getRequest().getDegreeOfConcurrency());
+    this.degreeOfConcurrency = session.getRequest().getDegreeOfConcurrency();
 
-    final Comparator<MavenProject> projectComparator = ProjectComparator.create(session);
+    final Comparator<MavenProject> projectComparator = ProjectComparator.create(graph);
 
-    this.reactorBuildQueue = new ReactorBuildQueue(projects, session.getProjectDependencyGraph());
+    this.reactorBuildQueue = new ReactorBuildQueue(projects, graph);
     this.executor = new ProjectExecutorService(degreeOfConcurrency, projectComparator);
 
     this.stats = ReactorBuildStats.create(projects);
@@ -151,18 +152,11 @@ class SmartBuilderImpl {
     int readyCount = reactorBuildQueue.getReadyCount();
     String runningProjects = "";
     if (readyCount < degreeOfConcurrency && blockedCount > 0) {
-      StringBuffer sb = new StringBuffer();
-      sb.append('[');
-      for (MavenProject project : reactorBuildQueue.getReadyProjects()) {
-        if (sb.length() > 1) {
-          sb.append(' ');
-        }
-        sb.append(projectGA(project));
-      }
-      sb.append(']');
-      runningProjects = sb.toString();
+      runningProjects = reactorBuildQueue.getReadyProjects().stream()
+          .map(SmartBuilderImpl::projectGA)
+          .collect(Collectors.joining(" ", "[", "]"));
     }
-    logger.info("Builder state: blocked={} finished={} ready-or-running={} {}", blockedCount,
+    logger.debug("Builder state: blocked={} finished={} ready-or-running={} {}", blockedCount,
         finishedCount, readyCount, runningProjects);
   }
 
@@ -177,7 +171,7 @@ class SmartBuilderImpl {
       logger.warn("Unexpected project build summary class {}", buildSummary.getClass());
       message = "UNKNOWN";
     }
-    logger.info("{} build of project {}", message, projectGA(project));
+    logger.debug("{} build of project {}:{}", message, project.getGroupId(), project.getArtifactId());
   }
 
   private static String projectGA(MavenProject project) {
@@ -188,17 +182,21 @@ class SmartBuilderImpl {
     executor.shutdown();
   }
 
+  public void cancel() {
+    executor.cancel();
+  }
+
   private void submitAll(Set<MavenProject> readyProjects) {
     List<ProjectBuildTask> tasks = new ArrayList<>();
     for (MavenProject project : readyProjects) {
       tasks.add(new ProjectBuildTask(project));
-      logger.debug("Ready {}", projectGA(project));
+      logger.debug("Ready {}:{}", project.getGroupId(), project.getArtifactId());
     }
     executor.submitAll(tasks);
   }
 
-  /* package */void buildProject(MavenProject project) {
-    logger.info("STARTED build of project {}", projectGA(project));
+  /* package */ void buildProject(MavenProject project) {
+    logger.debug("STARTED build of project {}:{}", project.getGroupId(), project.getArtifactId());
 
     try {
       MavenSession copiedSession = rootSession.clone();

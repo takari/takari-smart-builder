@@ -1,19 +1,11 @@
 package io.takari.maven.builder.smart;
 
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
-
-import org.apache.maven.execution.MavenSession;
-import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
 
-import com.google.common.collect.ImmutableMap;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import java.util.function.ToLongFunction;
 
 /**
  * Project comparator (factory) that uses project build time to establish build order.
@@ -36,63 +28,38 @@ import com.google.common.collect.ImmutableMap;
  */
 class ProjectComparator {
 
-  public static Comparator<MavenProject> create(MavenSession session) {
-    final ProjectDependencyGraph dependencyGraph = session.getProjectDependencyGraph();
-    return create0(DependencyGraph.fromMaven(dependencyGraph), ImmutableMap.of(), p -> id(p));
+  public static Comparator<MavenProject> create(DependencyGraph<MavenProject> graph) {
+    return create0(graph, Collections.emptyMap(), ProjectComparator::id);
   }
 
-  static <K> Comparator<K> create0(final DependencyGraph<K> dependencyGraph,
-      final Map<String, AtomicLong> historicalServiceTimes, Function<K, String> toKey) {
+  static <K> Comparator<K> create0(DependencyGraph<K> dependencyGraph,
+      Map<String, AtomicLong> historicalServiceTimes, Function<K, String> toKey) {
     final long defaultServiceTime = average(historicalServiceTimes.values());
 
     final Map<K, Long> serviceTimes = new HashMap<>();
 
     final Set<K> rootProjects = new HashSet<>();
-    for (K project : dependencyGraph.getSortedProjects()) {
-      Long serviceTime = getServiceTime(historicalServiceTimes, project, defaultServiceTime, toKey);
+    dependencyGraph.getProjects().forEach(project -> {
+      long serviceTime = getServiceTime(historicalServiceTimes, project, defaultServiceTime, toKey);
       serviceTimes.put(project, serviceTime);
-      if (dependencyGraph.getUpstreamProjects(project).isEmpty()) {
+      if (dependencyGraph.isRoot(project)) {
         rootProjects.add(project);
       }
-    }
+    });
 
     final Map<K, Long> projectWeights =
         calculateWeights(dependencyGraph, serviceTimes, rootProjects);
 
-    return new Comparator<K>() {
-      @Override
-      public int compare(K o1, K o2) {
-        long delta = projectWeights.get(o2) - projectWeights.get(o1);
-        if (delta > 0) {
-          return 1;
-        } else if (delta < 0) {
-          return -1;
-        }
-        // id comparison guarantees stable ordering during unit tests
-        return toKey.apply(o2).compareTo(toKey.apply(o1));
-      }
-    };
+    return Comparator.comparingLong((ToLongFunction<K>) projectWeights::get)
+            .thenComparing(toKey, String::compareTo)
+            .reversed();
   }
 
   private static long average(Collection<AtomicLong> values) {
-    long count = 0, sum = 0;
-    for (AtomicLong value : values) {
-      if (value != null) {
-        sum += value.longValue();
-        count++;
-      }
-    }
-    long average = 0;
-    if (count > 0) {
-      average = sum / count;
-    }
-    if (average == 0) {
-      average = 1; // arbitrary number
-    }
-    return average;
+    return (long) (values.stream().mapToLong(AtomicLong::longValue).average().orElse(1.0d));
   }
 
-  private static <K> Long getServiceTime(Map<String, AtomicLong> serviceTimes, K project,
+  private static <K> long getServiceTime(Map<String, AtomicLong> serviceTimes, K project,
       long defaultServiceTime, Function<K, String> toKey) {
     AtomicLong serviceTime = serviceTimes.get(toKey.apply(project));
     return serviceTime != null ? serviceTime.longValue() : defaultServiceTime;
@@ -113,28 +80,26 @@ class ProjectComparator {
    */
   private static <K> long calculateWeights(DependencyGraph<K> dependencyGraph,
       Map<K, Long> serviceTimes, K project, Map<K, Long> weights) {
-    long weight = serviceTimes.get(project);
-    for (K successor : dependencyGraph.getDownstreamProjects(project)) {
-      long successorWeight;
-      if (weights.containsKey(successor)) {
-        successorWeight = weights.get(successor);
-      } else {
-        successorWeight = calculateWeights(dependencyGraph, serviceTimes, successor, weights);
-      }
-      weight = Math.max(weight, serviceTimes.get(project) + successorWeight);
-    }
+    long weight = serviceTimes.get(project)
+                + dependencyGraph
+                        .getDownstreamProjects(project)
+                        .mapToLong(successor -> {
+                            long successorWeight;
+                            if (weights.containsKey(successor)) {
+                                successorWeight = weights.get(successor);
+                            } else {
+                                successorWeight = calculateWeights(dependencyGraph, serviceTimes, successor, weights);
+                            }
+                            return successorWeight;
+                        })
+                        .max()
+                        .orElse(0);
     weights.put(project, weight);
     return weight;
   }
 
   static String id(MavenProject project) {
-    StringBuilder sb = new StringBuilder();
-    sb.append(project.getGroupId());
-    sb.append(':');
-    sb.append(project.getArtifactId());
-    sb.append(':');
-    sb.append(project.getVersion());
-    return sb.toString();
+    return project.getGroupId() + ':' + project.getArtifactId() + ':' + project.getVersion();
   }
 
 }

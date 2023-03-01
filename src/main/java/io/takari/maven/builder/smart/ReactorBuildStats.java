@@ -1,21 +1,14 @@
 package io.takari.maven.builder.smart;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import com.google.common.collect.ImmutableMap;
+import org.apache.maven.project.MavenProject;
+
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import org.apache.maven.execution.ProjectDependencyGraph;
-import org.apache.maven.project.MavenProject;
-
-import com.google.common.collect.ImmutableMap;
+import java.util.stream.Stream;
 
 class ReactorBuildStats {
 
@@ -43,14 +36,14 @@ class ReactorBuildStats {
     this.bottleneckTimes = ImmutableMap.copyOf(bottleneckTimes);
   }
 
-  private static String projectGA(MavenProject project) {
-    return project.getGroupId() + ":" + project.getArtifactId();
+  private static String projectGAV(MavenProject project) {
+    return project.getGroupId() + ":" + project.getArtifactId() + ":" + project.getVersion();
   }
 
   public static ReactorBuildStats create(Collection<MavenProject> projects) {
     ImmutableMap.Builder<String, AtomicLong> serviceTimes = ImmutableMap.builder();
     ImmutableMap.Builder<String, AtomicLong> bottleneckTimes = ImmutableMap.builder();
-    projects.stream().map(project -> projectGA(project)).forEach(key -> {
+    projects.stream().map(ReactorBuildStats::projectGAV).forEach(key -> {
       serviceTimes.put(key, new AtomicLong());
       bottleneckTimes.put(key, new AtomicLong());
     });
@@ -66,14 +59,19 @@ class ReactorBuildStats {
   }
 
   public void recordServiceTime(MavenProject project, long durationNanos) {
-    serviceTimes.get(projectGA(project)).addAndGet(durationNanos);
+    AtomicLong serviceTime = serviceTimes.get(projectGAV(project));
+    if (serviceTime == null) {
+      throw new IllegalStateException(
+          "Unknown project " + projectGAV(project) + ", found " + serviceTimes.keySet());
+    }
+    serviceTime.addAndGet(durationNanos);
   }
 
   public void recordBottlenecks(Set<MavenProject> projects, int degreeOfConcurrency,
       long durationNanos) {
     // only projects that result in single-threaded builds
     if (projects.size() == 1) {
-      projects.forEach(p -> bottleneckTimes.get(projectGA(p)).addAndGet(durationNanos));
+      projects.forEach(p -> bottleneckTimes.get(projectGAV(p)).addAndGet(durationNanos));
     }
   }
 
@@ -82,7 +80,7 @@ class ReactorBuildStats {
   //
 
   public long totalServiceTime(TimeUnit unit) {
-    long nanos = serviceTimes.values().stream().mapToLong(l -> l.longValue()).sum();
+    long nanos = serviceTimes.values().stream().mapToLong(AtomicLong::longValue).sum();
     return unit.convert(nanos, TimeUnit.NANOSECONDS);
   }
 
@@ -90,8 +88,8 @@ class ReactorBuildStats {
     return unit.convert(stopTime - startTime, TimeUnit.NANOSECONDS);
   }
 
-  public String renderCriticalPath(ProjectDependencyGraph graph) {
-    return renderCriticalPath(DependencyGraph.fromMaven(graph), p -> projectGA(p));
+  public String renderCriticalPath(DependencyGraph<MavenProject> graph) {
+    return renderCriticalPath(graph, ReactorBuildStats::projectGAV);
   }
 
   public <K> String renderCriticalPath(DependencyGraph<K> graph, Function<K, String> toKey) {
@@ -163,12 +161,7 @@ class ReactorBuildStats {
 
   private <K> List<K> calculateCriticalPath(DependencyGraph<K> graph, Function<K, String> toKey) {
     Comparator<K> comparator = ProjectComparator.create0(graph, serviceTimes, toKey);
-    List<K> rootProjects = new ArrayList<>();
-    for (K project : graph.getSortedProjects()) {
-      if (graph.getUpstreamProjects(project).isEmpty()) {
-        rootProjects.add(project);
-      }
-    }
+    Stream<K> rootProjects = graph.getProjects().filter(graph::isRoot);
     List<K> criticalPath = new ArrayList<>();
     K project = getCriticalProject(rootProjects, comparator);
     do {
@@ -178,13 +171,8 @@ class ReactorBuildStats {
     return criticalPath;
   }
 
-  private <K> K getCriticalProject(Collection<K> projects, Comparator<K> comparator) {
-    if (projects == null || projects.isEmpty()) {
-      return null;
-    }
-    List<K> sorted = new ArrayList<>(projects);
-    Collections.sort(sorted, comparator);
-    return sorted.get(0);
+  private <K> K getCriticalProject(Stream<K> projects, Comparator<K> comparator) {
+    return projects.min(comparator).orElse(null);
   }
 
 }

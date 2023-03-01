@@ -1,16 +1,17 @@
 package io.takari.maven.builder.smart;
 
 import static io.takari.maven.builder.smart.ProjectComparator.id;
+import static org.junit.Assert.assertEquals;
+
 import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.maven.project.MavenProject;
-import org.junit.Assert;
-import org.junit.Test;
 
 import com.google.common.util.concurrent.Monitor;
+import org.junit.Test;
 
 public class ProjectExecutorServiceTest extends AbstractSmartBuilderTest {
 
@@ -67,13 +68,14 @@ public class ProjectExecutorServiceTest extends AbstractSmartBuilderTest {
     final MavenProject c = newProject("c");
     TestProjectDependencyGraph graph = new TestProjectDependencyGraph(a, b, c);
     graph.addDependency(b, a);
+    DependencyGraph<MavenProject> dp = DependencyGraph.fromMaven(graph);
 
     HashMap<String, AtomicLong> serviceTimes = new HashMap<>();
     serviceTimes.put(id(a), new AtomicLong(1L));
     serviceTimes.put(id(b), new AtomicLong(1L));
     serviceTimes.put(id(c), new AtomicLong(3L));
 
-    Comparator<MavenProject> cmp = ProjectComparator.create0(graph, serviceTimes, p -> id(p));
+    Comparator<MavenProject> cmp = ProjectComparator.create0(dp, serviceTimes, ProjectComparator::id);
 
     PausibleProjectExecutorService executor = new PausibleProjectExecutorService(1, cmp);
 
@@ -111,6 +113,6 @@ public class ProjectExecutorServiceTest extends AbstractSmartBuilderTest {
     executor.resume();
     executor.awaitShutdown();
 
-    Assert.assertEquals(Arrays.asList(a, c, a, b), executed);
+    assertEquals(Arrays.asList(a, c, a, b), executed);
   }
 }

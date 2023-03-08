@@ -7,13 +7,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.lifecycle.internal.LifecycleModuleBuilder;
 import org.apache.maven.lifecycle.internal.ProjectBuildList;
 import org.apache.maven.lifecycle.internal.ReactorBuildStatus;
@@ -33,40 +33,74 @@ import com.google.common.base.Joiner;
 @Singleton
 @Named("smart")
 public class SmartBuilder implements Builder {
-  
+
   public static final String PROP_PROFILING = "smartbuilder.profiling";
-  
+
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
   private final LifecycleModuleBuilder moduleBuilder;
 
-  
+  private volatile SmartBuilderImpl builder;
+  private volatile boolean canceled;
+
+  private static SmartBuilder INSTANCE;
+
+  public static SmartBuilder cancel() {
+    SmartBuilder builder = INSTANCE;
+    if (builder != null) {
+      builder.doCancel();
+    }
+    return builder;
+  }
+
   @Inject
   public SmartBuilder(LifecycleModuleBuilder moduleBuilder) {
     this.moduleBuilder = moduleBuilder;
+    INSTANCE = this;
+  }
+
+  void doCancel() {
+    canceled = true;
+    SmartBuilderImpl b = builder;
+    if (b != null) {
+      b.cancel();
+    }
+  }
+
+  public void doneCancel() {
+    canceled = false;
   }
 
   @Override
-  public void build(final MavenSession session, final ReactorContext reactorContext,
+  public synchronized void build(final MavenSession session, final ReactorContext reactorContext,
       ProjectBuildList projectBuilds, final List<TaskSegment> taskSegments,
       ReactorBuildStatus reactorBuildStatus) throws ExecutionException, InterruptedException {
 
-    ProjectDependencyGraph graph = session.getProjectDependencyGraph();
+    session.getRepositorySession().getData().set(ReactorBuildStatus.class, reactorBuildStatus);
+
+    DependencyGraph<MavenProject> graph = DependencyGraph.fromMaven(session);
 
     // log overall build info
     final int degreeOfConcurrency = session.getRequest().getDegreeOfConcurrency();
-    logger.info("Task segments : " + Joiner.on(" ").join(taskSegments));
+    logger.info(
+        "Task segments : " + taskSegments.stream().map(Object::toString).collect(Collectors.joining(" ")));
     logger.info("Build maximum degree of concurrency is " + degreeOfConcurrency);
-    logger.info("Total number of projects is " + graph.getSortedProjects().size());
+    logger.info("Total number of projects is " + session.getProjects().size());
 
     // the actual build execution
     List<Map.Entry<TaskSegment, ReactorBuildStats>> allstats = new ArrayList<>();
     for (TaskSegment taskSegment : taskSegments) {
       Set<MavenProject> projects = projectBuilds.getByTaskSegment(taskSegment).getProjects();
-      ReactorBuildStats stats =
-          new SmartBuilderImpl(moduleBuilder, session, reactorContext, taskSegment, projects)
-              .build();
-      allstats.add(new AbstractMap.SimpleEntry<>(taskSegment, stats));
+      if (canceled) {
+        return;
+      }
+      builder = new SmartBuilderImpl(moduleBuilder, session, reactorContext, taskSegment, projects, graph);
+      try {
+        ReactorBuildStats stats = builder.build();
+        allstats.add(new AbstractMap.SimpleEntry<>(taskSegment, stats));
+      } finally {
+        builder = null;
+      }
     }
 
     if (session.getResult().hasExceptions()) {
@@ -80,7 +114,7 @@ public class SmartBuilder implements Builder {
       ReactorBuildStats stats = entry.getValue();
       Set<MavenProject> projects = projectBuilds.getByTaskSegment(taskSegment).getProjects();
 
-      logger.info("Task segment {}, number of projects {}", taskSegment, projects.size());
+      logger.debug("Task segment {}, number of projects {}", taskSegment, projects.size());
 
       final long walltimeReactor = stats.walltimeTime(TimeUnit.NANOSECONDS);
       final long walltimeService = stats.totalServiceTime(TimeUnit.NANOSECONDS);

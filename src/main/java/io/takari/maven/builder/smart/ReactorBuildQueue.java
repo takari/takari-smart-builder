@@ -2,13 +2,11 @@ package io.takari.maven.builder.smart;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
-import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.project.MavenProject;
 
-import com.google.common.collect.ImmutableSet;
 
 /**
  * Reactor build queue manages reactor modules that are waiting for their upstream dependencies
@@ -16,7 +14,7 @@ import com.google.common.collect.ImmutableSet;
  */
 class ReactorBuildQueue {
 
-  private final ProjectDependencyGraph dependencyGraph;
+  private final DependencyGraph<MavenProject> graph;
 
   private final Set<MavenProject> rootProjects;
 
@@ -25,26 +23,25 @@ class ReactorBuildQueue {
   /**
    * Projects waiting for other projects to finish
    */
-  private final Set<MavenProject> blockedProjects = new HashSet<MavenProject>();
+  private final Set<MavenProject> blockedProjects;
 
-  private final Set<MavenProject> finishedProjects = new HashSet<MavenProject>();
+  private final Set<MavenProject> finishedProjects;
 
   public ReactorBuildQueue(Collection<MavenProject> projects,
-      ProjectDependencyGraph dependencyGraph) {
-    this.dependencyGraph = dependencyGraph;
-
-    final Set<MavenProject> rootProjects = new HashSet<MavenProject>();
-
-    for (MavenProject project : projects) {
-      if (dependencyGraph.getUpstreamProjects(project, false).isEmpty()) {
-        rootProjects.add(project);
+       DependencyGraph<MavenProject> graph) {
+    this.graph = graph;
+    this.projects = new HashSet<>();
+    this.rootProjects = new HashSet<>();
+    this.blockedProjects = new HashSet<>();
+    this.finishedProjects = new HashSet<>();
+    projects.forEach(project -> {
+      this.projects.add(project);
+      if (this.graph.isRoot(project)) {
+        this.rootProjects.add(project);
       } else {
-        blockedProjects.add(project);
+        this.blockedProjects.add(project);
       }
-    }
-
-    this.rootProjects = ImmutableSet.copyOf(rootProjects);
-    this.projects = ImmutableSet.copyOf(projects);
+    });
   }
 
   /**
@@ -53,27 +50,22 @@ class ReactorBuildQueue {
    */
   public Set<MavenProject> onProjectFinish(MavenProject project) {
     finishedProjects.add(project);
-    Set<MavenProject> downstreamProjects = new HashSet<MavenProject>();
-    for (MavenProject successor : getDownstreamProjects(project)) {
-      if (blockedProjects.contains(successor) && isProjectReady(successor)) {
-        blockedProjects.remove(successor);
-        downstreamProjects.add(successor);
-      }
-    }
+    Set<MavenProject> downstreamProjects = new HashSet<>();
+    getDownstreamProjects(project)
+        .filter(successor -> blockedProjects.contains(successor) && isProjectReady(successor))
+        .forEach(successor -> {
+          blockedProjects.remove(successor);
+          downstreamProjects.add(successor);
+        });
     return downstreamProjects;
   }
 
-  public List<MavenProject> getDownstreamProjects(MavenProject project) {
-    return dependencyGraph.getDownstreamProjects(project, false);
+  public Stream<MavenProject> getDownstreamProjects(MavenProject project) {
+    return graph.getDownstreamProjects(project);
   }
 
   private boolean isProjectReady(MavenProject project) {
-    for (MavenProject upstream : dependencyGraph.getUpstreamProjects(project, false)) {
-      if (!finishedProjects.contains(upstream)) {
-        return false;
-      }
-    }
-    return true;
+    return graph.getUpstreamProjects(project).allMatch(finishedProjects::contains);
   }
 
   /**

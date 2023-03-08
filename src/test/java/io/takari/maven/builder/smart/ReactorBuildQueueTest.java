@@ -1,8 +1,10 @@
 package io.takari.maven.builder.smart;
 
 import org.apache.maven.project.MavenProject;
-import org.junit.Assert;
 import org.junit.Test;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class ReactorBuildQueueTest extends AbstractSmartBuilderTest {
 
@@ -11,25 +13,27 @@ public class ReactorBuildQueueTest extends AbstractSmartBuilderTest {
     MavenProject a = newProject("a"), b = newProject("b"), c = newProject("c");
     TestProjectDependencyGraph graph = new TestProjectDependencyGraph(a, b, c);
     graph.addDependency(b, a);
+    DependencyGraph<MavenProject> dp = DependencyGraph.fromMaven(graph);
 
-    ReactorBuildQueue schl = new ReactorBuildQueue(graph.getSortedProjects(), graph);
+    ReactorBuildQueue schl = new ReactorBuildQueue(graph.getSortedProjects(), dp);
 
     assertProjects(schl.getRootProjects(), a, c);
-    Assert.assertFalse(schl.isEmpty());
+    assertFalse(schl.isEmpty());
 
     assertProjects(schl.onProjectFinish(a), b);
-    Assert.assertTrue(schl.isEmpty());
+    assertTrue(schl.isEmpty());
   }
 
   @Test
   public void testNoDependencies() {
     MavenProject a = newProject("a"), b = newProject("b"), c = newProject("c");
     TestProjectDependencyGraph graph = new TestProjectDependencyGraph(a, b, c);
+    DependencyGraph<MavenProject> dp = DependencyGraph.fromMaven(graph);
 
-    ReactorBuildQueue schl = new ReactorBuildQueue(graph.getSortedProjects(), graph);
+    ReactorBuildQueue schl = new ReactorBuildQueue(graph.getSortedProjects(), dp);
 
     assertProjects(schl.getRootProjects(), a, b, c);
-    Assert.assertTrue(schl.isEmpty());
+    assertTrue(schl.isEmpty());
   }
 
   @Test
@@ -38,16 +42,17 @@ public class ReactorBuildQueueTest extends AbstractSmartBuilderTest {
     TestProjectDependencyGraph graph = new TestProjectDependencyGraph(a, b, c);
     graph.addDependency(b, a);
     graph.addDependency(b, c);
+    DependencyGraph<MavenProject> dp = DependencyGraph.fromMaven(graph);
 
-    ReactorBuildQueue schl = new ReactorBuildQueue(graph.getSortedProjects(), graph);
+    ReactorBuildQueue schl = new ReactorBuildQueue(graph.getSortedProjects(), dp);
 
     assertProjects(schl.getRootProjects(), a, c);
-    Assert.assertFalse(schl.isEmpty());
+    assertFalse(schl.isEmpty());
 
     assertProjects(schl.onProjectFinish(a), new MavenProject[0]);
-    Assert.assertFalse(schl.isEmpty());
+    assertFalse(schl.isEmpty());
 
     assertProjects(schl.onProjectFinish(c), b);
-    Assert.assertTrue(schl.isEmpty());
+    assertTrue(schl.isEmpty());
   }
 }

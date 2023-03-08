@@ -7,7 +7,7 @@
   </parent>
   <groupId>io.takari.maven</groupId>
   <artifactId>takari-smart-builder</artifactId>
-  <version>0.6.2-SNAPSHOT</version>
+  <version>0.6.2</version>
   <packaging>takari-maven-component</packaging>
   <name>Takari Smart Builder for Maven</name>
 
@@ -81,4 +81,8 @@
     </dependency>
   </dependencies>
 
+
+  <scm>
+    <tag>takari-smart-builder-0.6.2</tag>
+  </scm>
 </project>

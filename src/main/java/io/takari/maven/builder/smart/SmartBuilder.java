@@ -1,5 +1,6 @@
 package io.takari.maven.builder.smart;
 
+import java.text.NumberFormat;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,7 +8,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -82,10 +82,12 @@ public class SmartBuilder implements Builder {
 
     // log overall build info
     final int degreeOfConcurrency = session.getRequest().getDegreeOfConcurrency();
-    logger.info(
-        "Task segments : " + taskSegments.stream().map(Object::toString).collect(Collectors.joining(" ")));
-    logger.info("Build maximum degree of concurrency is " + degreeOfConcurrency);
-    logger.info("Total number of projects is " + session.getProjects().size());
+
+    if (logger.isDebugEnabled()) {
+      logger.debug("Task segments : {}", Joiner.on(" ").join(taskSegments));
+      logger.debug("Build maximum degree of concurrency is {}", degreeOfConcurrency);
+      logger.debug("Total number of projects is {}", graph.getProjects().count());
+    }
 
     // the actual build execution
     List<Map.Entry<TaskSegment, ReactorBuildStats>> allstats = new ArrayList<>();
@@ -109,25 +111,50 @@ public class SmartBuilder implements Builder {
     }
 
     // log stats of each task segment
+    boolean profiling = isProfiling(session);
     for (Map.Entry<TaskSegment, ReactorBuildStats> entry : allstats) {
       TaskSegment taskSegment = entry.getKey();
       ReactorBuildStats stats = entry.getValue();
       Set<MavenProject> projects = projectBuilds.getByTaskSegment(taskSegment).getProjects();
 
-      logger.debug("Task segment {}, number of projects {}", taskSegment, projects.size());
+      if (profiling || logger.isDebugEnabled()) {
+          logger.info("Task segment {}, number of projects {}", taskSegment, projects.size());
+      }
 
       final long walltimeReactor = stats.walltimeTime(TimeUnit.NANOSECONDS);
       final long walltimeService = stats.totalServiceTime(TimeUnit.NANOSECONDS);
-      final String effectiveConcurrency =
-          String.format("%2.2f", ((double) walltimeService) / walltimeReactor);
-      logger.info(
-          "Segment walltime {} s, segment projects service time {} s, effective/maximum degree of concurrency {}/{}",
-          TimeUnit.NANOSECONDS.toSeconds(walltimeReactor),
-          TimeUnit.NANOSECONDS.toSeconds(walltimeService), effectiveConcurrency,
-          degreeOfConcurrency);
-
-      if (projects.size() > 1 && isProfiling(session)) {
-        logger.info(stats.renderCriticalPath(graph));
+      double effective = ((double) walltimeService) / walltimeReactor;
+      final String effectiveConcurrency = String.format("%2.2f", effective);
+      if (profiling || logger.isDebugEnabled()) {
+        logger.info(
+            "Segment walltime {} s, segment projects service time {} s, effective/maximum degree of concurrency {}/{}",
+            TimeUnit.NANOSECONDS.toSeconds(walltimeReactor),
+            TimeUnit.NANOSECONDS.toSeconds(walltimeService), effectiveConcurrency,
+            degreeOfConcurrency);
+        if (projects.size() > 1) {
+          logger.info(stats.renderCriticalPath(graph));
+        }
+      } else {
+        NumberFormat nf = NumberFormat.getNumberInstance();
+        nf.setMaximumFractionDigits(2);
+        logger.info("------------------------------------------------------------------------");
+        String averageWallTime = String.format("%2.2f",
+            TimeUnit.NANOSECONDS.toSeconds(walltimeReactor) / (double) projects.size());
+        logger.info("Average project wall time: {}s", averageWallTime);
+        double percentage = effective / degreeOfConcurrency;
+        logger.info("Total concurrency: {}",
+            NumberFormat.getPercentInstance().format(percentage));
+        if (percentage < 0.8) {
+          List<String> bottleneckProjects = stats.getBottleneckProjects();
+          if (bottleneckProjects.size() > 0) {
+            logger.info(
+                "Bottleneck projects that decrease concurrency: (run build with -D{}=true for further details)",
+                PROP_PROFILING);
+            for (String project : bottleneckProjects) {
+              logger.info("\t- {}", project);
+            }
+          }
+        }
       }
     }
   }

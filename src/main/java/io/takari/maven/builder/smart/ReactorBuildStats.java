@@ -137,7 +137,7 @@ class ReactorBuildStats {
     }
   }
 
-  private List<String> getBottleneckProjects() {
+  public List<String> getBottleneckProjects() {
     Comparator<String> comparator = (a, b) -> {
       long ta = bottleneckTimes.get(a).longValue();
       long tb = bottleneckTimes.get(b).longValue();

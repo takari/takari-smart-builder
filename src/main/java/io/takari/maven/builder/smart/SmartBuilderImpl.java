@@ -1,5 +1,12 @@
 package io.takari.maven.builder.smart;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more contributor license
  * agreements. See the NOTICE file distributed with this work for additional information regarding
@@ -24,16 +31,10 @@ import org.apache.maven.lifecycle.internal.ReactorContext;
 import org.apache.maven.lifecycle.internal.TaskSegment;
 import org.apache.maven.lifecycle.internal.builder.Builder;
 import org.apache.maven.project.MavenProject;
-import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
+import io.takari.maven.builder.smart.ProjectExecutorService.ProjectRunnable;
 
 /**
  * Maven {@link Builder} implementation that schedules execution of the reactor modules on the build
@@ -168,7 +169,7 @@ class SmartBuilderImpl {
     } else if (buildSummary instanceof BuildFailure) {
       message = "FAILURE";
     } else if (buildSummary != null) {
-      logger.warn("Unexpected project build summary class {}", buildSummary.getClass());
+      logger.debug("Unexpected project build summary class {}", buildSummary.getClass());
       message = "UNKNOWN";
     }
     logger.debug("{} build of project {}:{}", message, project.getGroupId(), project.getArtifactId());

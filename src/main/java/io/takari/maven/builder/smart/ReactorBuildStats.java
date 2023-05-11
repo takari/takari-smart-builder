@@ -1,9 +1,15 @@
 package io.takari.maven.builder.smart;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.maven.project.MavenProject;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -32,8 +38,8 @@ class ReactorBuildStats {
 
   private ReactorBuildStats(Map<String, AtomicLong> serviceTimes,
       Map<String, AtomicLong> bottleneckTimes) {
-    this.serviceTimes = ImmutableMap.copyOf(serviceTimes);
-    this.bottleneckTimes = ImmutableMap.copyOf(bottleneckTimes);
+    this.serviceTimes = Collections.unmodifiableMap(serviceTimes);
+    this.bottleneckTimes = Collections.unmodifiableMap(bottleneckTimes);
   }
 
   private static String projectGAV(MavenProject project) {
@@ -41,13 +47,13 @@ class ReactorBuildStats {
   }
 
   public static ReactorBuildStats create(Collection<MavenProject> projects) {
-    ImmutableMap.Builder<String, AtomicLong> serviceTimes = ImmutableMap.builder();
-    ImmutableMap.Builder<String, AtomicLong> bottleneckTimes = ImmutableMap.builder();
+    Map<String, AtomicLong> serviceTimes = new HashMap<>();
+    Map<String, AtomicLong> bottleneckTimes = new HashMap<>();
     projects.stream().map(ReactorBuildStats::projectGAV).forEach(key -> {
       serviceTimes.put(key, new AtomicLong());
       bottleneckTimes.put(key, new AtomicLong());
     });
-    return new ReactorBuildStats(serviceTimes.build(), bottleneckTimes.build());
+    return new ReactorBuildStats(serviceTimes, bottleneckTimes);
   }
 
   public void recordStart() {

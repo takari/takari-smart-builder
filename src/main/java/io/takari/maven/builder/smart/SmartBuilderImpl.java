@@ -3,6 +3,7 @@ package io.takari.maven.builder.smart;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -64,6 +65,8 @@ class SmartBuilderImpl {
   //
   private final ReactorBuildStats stats;
 
+  private final boolean needsSessionClone;
+
   class ProjectBuildTask implements ProjectRunnable {
     private final MavenProject project;
 
@@ -103,6 +106,8 @@ class SmartBuilderImpl {
     this.executor = new ProjectExecutorService(degreeOfConcurrency, projectComparator);
 
     this.stats = ReactorBuildStats.create(projects);
+
+    this.needsSessionClone = needsSessionClone(rootSession.getSystemProperties());
   }
 
   public ReactorBuildStats build() throws ExecutionException, InterruptedException {
@@ -200,7 +205,7 @@ class SmartBuilderImpl {
     logger.debug("STARTED build of project {}:{}", project.getGroupId(), project.getArtifactId());
 
     try {
-      MavenSession copiedSession = rootSession.clone();
+      MavenSession copiedSession = needsSessionClone ? rootSession.clone() : rootSession;
       lifecycleModuleBuilder.buildProject(copiedSession, rootSession, reactorContext, project,
           taskSegment);
     } catch (RuntimeException ex) {
@@ -208,6 +213,26 @@ class SmartBuilderImpl {
       rootSession.getResult()
           .addException(new RuntimeException(project.getName() + ": " + ex.getMessage(), ex));
     }
+  }
+
+  private static boolean needsSessionClone(Properties props) {
+    String version = props.getProperty("maven.version");
+    if (version != null) {
+      int i0 = version.indexOf(".");
+      int i1 = i0 > 0 ? version.indexOf(".", i0 + 1) : -1;
+      if (i1 > 0) {
+        try {
+          int maj = Integer.parseInt(version.substring(0, i0));
+          int min = Integer.parseInt(version.substring(i0 + 1, i1));
+          if (maj > 3 || (maj == 3 && min >= 9)) {
+            return false;
+          }
+        } catch (NumberFormatException e) {
+          // ignore
+        }
+      }
+    }
+    return true;
   }
 
 }

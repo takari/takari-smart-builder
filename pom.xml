@@ -52,12 +52,6 @@
       <version>${mavenResolverVersion}</version>
       <scope>provided</scope>
     </dependency>
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>31.0.1-jre</version>
-      <scope>provided</scope>
-    </dependency>
 
     <!-- test dependencies -->
     <dependency>
@@ -77,6 +71,12 @@
       <artifactId>takari-plugin-integration-testing</artifactId>
       <version>${pluginTestingVersion}</version>
       <type>pom</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>31.0.1-jre</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

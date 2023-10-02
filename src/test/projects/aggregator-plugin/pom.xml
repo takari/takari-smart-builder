@@ -36,6 +36,8 @@
         <version>2.0.9</version>
         <extensions>true</extensions>
         <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
           <proc>none</proc>
         </configuration>
       </plugin>

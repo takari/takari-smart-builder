@@ -116,6 +116,11 @@ public class SmartBuilder implements Builder {
       ReactorBuildStats stats = entry.getValue();
       Set<MavenProject> projects = projectBuilds.getByTaskSegment(taskSegment).getProjects();
 
+      if (projects.size() <= 1) {
+        // don't bother printing anything if there's only one project
+        continue;
+      }
+
       if (profiling || logger.isDebugEnabled()) {
           logger.info("Task segment {}, number of projects {}", taskSegment, projects.size());
       }
@@ -130,9 +135,7 @@ public class SmartBuilder implements Builder {
             TimeUnit.NANOSECONDS.toSeconds(walltimeReactor),
             TimeUnit.NANOSECONDS.toSeconds(walltimeService), effectiveConcurrency,
             degreeOfConcurrency);
-        if (projects.size() > 1) {
-          logger.info(stats.renderCriticalPath(graph));
-        }
+        logger.info(stats.renderCriticalPath(graph));
       } else {
         NumberFormat nf = NumberFormat.getNumberInstance();
         nf.setMaximumFractionDigits(2);
@@ -145,7 +148,7 @@ public class SmartBuilder implements Builder {
             NumberFormat.getPercentInstance().format(percentage));
         if (percentage < 0.8) {
           List<String> bottleneckProjects = stats.getBottleneckProjects();
-          if (bottleneckProjects.size() > 0) {
+          if (!bottleneckProjects.isEmpty()) {
             logger.info(
                 "Bottleneck projects that decrease concurrency: (run build with -D{}=true for further details)",
                 PROP_PROFILING);

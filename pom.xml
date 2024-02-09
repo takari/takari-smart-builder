@@ -1,9 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>io.takari</groupId>
     <artifactId>takari</artifactId>
-    <version>50</version>
+    <version>52</version>
   </parent>
   <groupId>io.takari.maven</groupId>
   <artifactId>takari-smart-builder</artifactId>
@@ -21,8 +22,8 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <mavenVersion>3.6.3</mavenVersion>
-    <mavenResolverVersion>1.4.1</mavenResolverVersion>
+    <mavenVersion>3.9.6</mavenVersion>
+    <mavenResolverVersion>1.9.18</mavenResolverVersion>
     <pluginTestingVersion>3.0.1</pluginTestingVersion>
     <takari.javaSourceVersion>1.8</takari.javaSourceVersion>
   </properties>
@@ -76,7 +77,13 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>31.0.1-jre</version>
+      <version>32.1.3-jre</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.7.36</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

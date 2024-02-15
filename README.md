@@ -27,7 +27,8 @@ $ mvn -b smart -T2C
 Or alternatively, create `.mvn/maven.config` file (and place each configuration on separate line):
 
 ```
--b smart
+-b
+smart
 -T2C
 ```
 

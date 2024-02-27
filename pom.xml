@@ -29,6 +29,13 @@
     </license>
   </licenses>
 
+  <scm>
+    <connection>scm:git:git@github.com:takari/takari-smart-builder.git</connection>
+    <developerConnection>scm:git:git@github.com:takari/takari-smart-builder.git</developerConnection>
+    <tag>HEAD</tag>
+    <url>https://github.com/takari/takari-smart-builder</url>
+  </scm>
+
   <properties>
     <takari.licenseHeader>https://raw.githubusercontent.com/takari/takari-pom/master/license-header-asl2.txt</takari.licenseHeader>
 

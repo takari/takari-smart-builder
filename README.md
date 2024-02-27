@@ -12,7 +12,7 @@ Create in project root a file `.mvn/extensions.xml` with following content:
     <extension>
         <groupId>io.takari.maven</groupId>
         <artifactId>takari-smart-builder</artifactId>
-        <version>0.6.4</version>
+        <version>0.6.5</version>
     </extension>
 </extensions>
 ```

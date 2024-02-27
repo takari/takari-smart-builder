@@ -1,12 +1,17 @@
+/*
+ * Copyright (c) 2014-2024 Takari, Inc.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Apache Software License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.apache.org/licenses/LICENSE-2.0
+ */
 package io.takari.maven.builder.smart;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Stream;
-
 import org.apache.maven.project.MavenProject;
-
 
 /**
  * Reactor build queue manages reactor modules that are waiting for their upstream dependencies
@@ -14,91 +19,89 @@ import org.apache.maven.project.MavenProject;
  */
 class ReactorBuildQueue {
 
-  private final DependencyGraph<MavenProject> graph;
+    private final DependencyGraph<MavenProject> graph;
 
-  private final Set<MavenProject> rootProjects;
+    private final Set<MavenProject> rootProjects;
 
-  private final Set<MavenProject> projects;
+    private final Set<MavenProject> projects;
 
-  /**
-   * Projects waiting for other projects to finish
-   */
-  private final Set<MavenProject> blockedProjects;
+    /**
+     * Projects waiting for other projects to finish
+     */
+    private final Set<MavenProject> blockedProjects;
 
-  private final Set<MavenProject> finishedProjects;
+    private final Set<MavenProject> finishedProjects;
 
-  public ReactorBuildQueue(Collection<MavenProject> projects,
-       DependencyGraph<MavenProject> graph) {
-    this.graph = graph;
-    this.projects = new HashSet<>();
-    this.rootProjects = new HashSet<>();
-    this.blockedProjects = new HashSet<>();
-    this.finishedProjects = new HashSet<>();
-    projects.forEach(project -> {
-      this.projects.add(project);
-      if (this.graph.isRoot(project)) {
-        this.rootProjects.add(project);
-      } else {
-        this.blockedProjects.add(project);
-      }
-    });
-  }
-
-  /**
-   * Marks specified project as finished building. Returns, possible empty, set of project's
-   * downstream dependencies that become ready to build.
-   */
-  public Set<MavenProject> onProjectFinish(MavenProject project) {
-    finishedProjects.add(project);
-    Set<MavenProject> downstreamProjects = new HashSet<>();
-    getDownstreamProjects(project)
-        .filter(successor -> blockedProjects.contains(successor) && isProjectReady(successor))
-        .forEach(successor -> {
-          blockedProjects.remove(successor);
-          downstreamProjects.add(successor);
+    public ReactorBuildQueue(Collection<MavenProject> projects, DependencyGraph<MavenProject> graph) {
+        this.graph = graph;
+        this.projects = new HashSet<>();
+        this.rootProjects = new HashSet<>();
+        this.blockedProjects = new HashSet<>();
+        this.finishedProjects = new HashSet<>();
+        projects.forEach(project -> {
+            this.projects.add(project);
+            if (this.graph.isRoot(project)) {
+                this.rootProjects.add(project);
+            } else {
+                this.blockedProjects.add(project);
+            }
         });
-    return downstreamProjects;
-  }
+    }
 
-  public Stream<MavenProject> getDownstreamProjects(MavenProject project) {
-    return graph.getDownstreamProjects(project);
-  }
+    /**
+     * Marks specified project as finished building. Returns, possible empty, set of project's
+     * downstream dependencies that become ready to build.
+     */
+    public Set<MavenProject> onProjectFinish(MavenProject project) {
+        finishedProjects.add(project);
+        Set<MavenProject> downstreamProjects = new HashSet<>();
+        getDownstreamProjects(project)
+                .filter(successor -> blockedProjects.contains(successor) && isProjectReady(successor))
+                .forEach(successor -> {
+                    blockedProjects.remove(successor);
+                    downstreamProjects.add(successor);
+                });
+        return downstreamProjects;
+    }
 
-  private boolean isProjectReady(MavenProject project) {
-    return graph.getUpstreamProjects(project).allMatch(finishedProjects::contains);
-  }
+    public Stream<MavenProject> getDownstreamProjects(MavenProject project) {
+        return graph.getDownstreamProjects(project);
+    }
 
-  /**
-   * Returns {@code true} when no more projects are left to schedule.
-   */
-  public boolean isEmpty() {
-    return blockedProjects.isEmpty();
-  }
+    private boolean isProjectReady(MavenProject project) {
+        return graph.getUpstreamProjects(project).allMatch(finishedProjects::contains);
+    }
 
-  /**
-   * Returns reactor build root projects, that is, projects that do not have upstream dependencies.
-   */
-  public Set<MavenProject> getRootProjects() {
-    return rootProjects;
-  }
+    /**
+     * Returns {@code true} when no more projects are left to schedule.
+     */
+    public boolean isEmpty() {
+        return blockedProjects.isEmpty();
+    }
 
-  public int getBlockedCount() {
-    return blockedProjects.size();
-  }
+    /**
+     * Returns reactor build root projects, that is, projects that do not have upstream dependencies.
+     */
+    public Set<MavenProject> getRootProjects() {
+        return rootProjects;
+    }
 
-  public int getFinishedCount() {
-    return finishedProjects.size();
-  }
+    public int getBlockedCount() {
+        return blockedProjects.size();
+    }
 
-  public int getReadyCount() {
-    return projects.size() - blockedProjects.size() - finishedProjects.size();
-  }
+    public int getFinishedCount() {
+        return finishedProjects.size();
+    }
 
-  public Set<MavenProject> getReadyProjects() {
-    Set<MavenProject> projects = new HashSet<>(this.projects);
-    projects.removeAll(blockedProjects);
-    projects.removeAll(finishedProjects);
-    return projects;
-  }
+    public int getReadyCount() {
+        return projects.size() - blockedProjects.size() - finishedProjects.size();
+    }
 
+    public Set<MavenProject> getReadyProjects() {
+        Set<MavenProject> projects = new HashSet<>(this.projects);
+        projects.removeAll(blockedProjects);
+        projects.removeAll(finishedProjects);
+        return projects;
+    }
 }

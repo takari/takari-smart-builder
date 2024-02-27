@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2014-2024 Takari, Inc.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Apache Software License v2.0
+ * which accompanies this distribution, and is available at
+ * https://www.apache.org/licenses/LICENSE-2.0
+ */
 package io.takari.maven.builder.smart;
 
 import java.util.Collection;
@@ -11,7 +18,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.maven.lifecycle.internal.BuildThreadFactory;
 import org.apache.maven.project.MavenProject;
 
@@ -23,86 +29,89 @@ import org.apache.maven.project.MavenProject;
  */
 class ProjectExecutorService {
 
-  static interface ProjectRunnable extends Runnable {
-    public MavenProject getProject();
-  }
-
-  private class ProjectFutureTask extends FutureTask<MavenProject> implements ProjectRunnable {
-    private ProjectRunnable task;
-
-    public ProjectFutureTask(ProjectRunnable task) {
-      super(task, task.getProject());
-      this.task = task;
+    static interface ProjectRunnable extends Runnable {
+        public MavenProject getProject();
     }
 
-    @Override
-    protected void done() {
-      completion.add(this);
+    private class ProjectFutureTask extends FutureTask<MavenProject> implements ProjectRunnable {
+        private ProjectRunnable task;
+
+        public ProjectFutureTask(ProjectRunnable task) {
+            super(task, task.getProject());
+            this.task = task;
+        }
+
+        @Override
+        protected void done() {
+            completion.add(this);
+        }
+
+        @Override
+        public MavenProject getProject() {
+            return task.getProject();
+        }
     }
 
-    @Override
-    public MavenProject getProject() {
-      return task.getProject();
+    private final ExecutorService executor;
+
+    private final BlockingQueue<Future<MavenProject>> completion = new LinkedBlockingQueue<>();
+
+    private final Comparator<Runnable> taskComparator;
+
+    public ProjectExecutorService(final int degreeOfConcurrency, final Comparator<MavenProject> projectComparator) {
+
+        this.taskComparator = Comparator.comparing(r -> ((ProjectRunnable) r).getProject(), projectComparator);
+
+        final BlockingQueue<Runnable> executorWorkQueue =
+                new PriorityBlockingQueue<>(degreeOfConcurrency, taskComparator);
+
+        executor =
+                new ThreadPoolExecutor(
+                        degreeOfConcurrency, // corePoolSize
+                        degreeOfConcurrency, // maximumPoolSize
+                        0L,
+                        TimeUnit.MILLISECONDS, // keepAliveTime, unit
+                        executorWorkQueue, // workQueue
+                        new BuildThreadFactory() // threadFactory
+                        ) {
+
+                    @Override
+                    protected void beforeExecute(Thread t, Runnable r) {
+                        ProjectExecutorService.this.beforeExecute(t, r);
+                    }
+                };
     }
-  }
 
-  private final ExecutorService executor;
+    public void submitAll(final Collection<? extends ProjectRunnable> tasks) {
+        // when there are available worker threads, tasks are immediately executed, i.e. bypassed the
+        // ordered queued. need to sort tasks, such that submission order matches desired execution
+        // order
+        tasks.stream().sorted(taskComparator).map(ProjectFutureTask::new).forEach(executor::execute);
+    }
 
-  private final BlockingQueue<Future<MavenProject>> completion = new LinkedBlockingQueue<>();
+    /**
+     * Returns {@link MavenProject} corresponding to the next completed task, waiting if none are yet
+     * present.
+     */
+    public MavenProject take() throws InterruptedException, ExecutionException {
+        return completion.take().get();
+    }
 
-  private final Comparator<Runnable> taskComparator;
+    public void shutdown() {
+        executor.shutdown();
+    }
 
-  public ProjectExecutorService(final int degreeOfConcurrency,
-      final Comparator<MavenProject> projectComparator) {
+    public void cancel() {
+        executor.shutdownNow();
+    }
 
-    this.taskComparator = Comparator.comparing(r -> ((ProjectRunnable) r).getProject(), projectComparator);
+    // hook to allow pausing executor during unit tests
+    protected void beforeExecute(Thread t, Runnable r) {}
 
-    final BlockingQueue<Runnable> executorWorkQueue =
-        new PriorityBlockingQueue<>(degreeOfConcurrency, taskComparator);
-
-    executor = new ThreadPoolExecutor(degreeOfConcurrency, // corePoolSize
-        degreeOfConcurrency, // maximumPoolSize
-        0L, TimeUnit.MILLISECONDS, // keepAliveTime, unit
-        executorWorkQueue, // workQueue
-        new BuildThreadFactory() // threadFactory
-        ) {
-
-          @Override
-          protected void beforeExecute(Thread t, Runnable r) {
-            ProjectExecutorService.this.beforeExecute(t, r);
-          }
-        };
-  }
-
-  public void submitAll(final Collection<? extends ProjectRunnable> tasks) {
-    // when there are available worker threads, tasks are immediately executed, i.e. bypassed the
-    // ordered queued. need to sort tasks, such that submission order matches desired execution
-    // order
-    tasks.stream().sorted(taskComparator).map(ProjectFutureTask::new).forEach(executor::execute);
-  }
-
-  /**
-   * Returns {@link MavenProject} corresponding to the next completed task, waiting if none are yet
-   * present.
-   */
-  public MavenProject take() throws InterruptedException, ExecutionException {
-    return completion.take().get();
-  }
-
-  public void shutdown() {
-    executor.shutdown();
-  }
-
-  public void cancel() {
-    executor.shutdownNow();
-  }
-
-  // hook to allow pausing executor during unit tests
-  protected void beforeExecute(Thread t, Runnable r) {}
-
-  // for testing purposes only
-  public void awaitShutdown() throws InterruptedException {
-    executor.shutdown();
-    while (!executor.awaitTermination(5, TimeUnit.SECONDS));
-  }
+    // for testing purposes only
+    public void awaitShutdown() throws InterruptedException {
+        executor.shutdown();
+        while (!executor.awaitTermination(5, TimeUnit.SECONDS))
+            ;
+    }
 }

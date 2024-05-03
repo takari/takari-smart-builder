@@ -13,7 +13,7 @@
   <parent>
     <groupId>io.takari</groupId>
     <artifactId>takari</artifactId>
-    <version>53</version>
+    <version>54</version>
   </parent>
   <groupId>io.takari.maven</groupId>
   <artifactId>takari-smart-builder</artifactId>
@@ -95,7 +95,7 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>33.0.0-jre</version>
+      <version>33.2.0-jre</version>
       <scope>test</scope>
     </dependency>
     <dependency>

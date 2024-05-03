@@ -41,7 +41,7 @@
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <mavenVersion>3.9.6</mavenVersion>
-    <mavenResolverVersion>1.9.18</mavenResolverVersion>
+    <mavenResolverVersion>1.9.20</mavenResolverVersion>
     <pluginTestingVersion>3.0.2</pluginTestingVersion>
     <takari.javaSourceVersion>1.8</takari.javaSourceVersion>
   </properties>

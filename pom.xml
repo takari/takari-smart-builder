@@ -40,7 +40,7 @@
     <takari.licenseHeader>https://raw.githubusercontent.com/takari/takari-pom/master/license-header-asl2.txt</takari.licenseHeader>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <mavenVersion>3.9.6</mavenVersion>
+    <mavenVersion>3.9.7</mavenVersion>
     <mavenResolverVersion>1.9.18</mavenResolverVersion>
     <pluginTestingVersion>3.0.2</pluginTestingVersion>
     <takari.javaSourceVersion>1.8</takari.javaSourceVersion>

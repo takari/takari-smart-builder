@@ -1,7 +1,7 @@
 # Takari Smart Builder
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.takari.maven/takari-smart-builder.svg?label=Maven%20Central)](https://search.maven.org/artifact/io.takari.maven/takari-smart-builder)
-[![Verify](https://github.com/takari/takari-smart-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/takari/maven-smart-builder/actions/workflows/ci.yml)
+[![Verify](https://github.com/takari/takari-smart-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/takari/takari-smart-builder/actions/workflows/ci.yml)
 [![Reproducible Builds](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jvm-repo-rebuild/reproducible-central/master/content/io/takari/maven/takari-smart-builder/badge.json)](https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/io/takari/maven/takari-smart-builder/README.md)
 
 ## Set it up

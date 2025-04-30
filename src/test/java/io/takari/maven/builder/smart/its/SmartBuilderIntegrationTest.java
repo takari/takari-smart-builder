@@ -12,6 +12,7 @@ import io.takari.maven.testing.executor.MavenRuntime.MavenRuntimeBuilder;
 import io.takari.maven.testing.executor.MavenVersions;
 import io.takari.maven.testing.executor.junit.MavenJUnitTestRunner;
 import java.io.File;
+import java.nio.file.Paths;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,7 +31,7 @@ public class SmartBuilderIntegrationTest {
 
     public SmartBuilderIntegrationTest(MavenRuntimeBuilder runtimeBuilder) throws Exception {
         this.verifier = runtimeBuilder
-                .withExtension(new File("target/classes").getCanonicalFile()) //
+                .withExtension(Paths.get("target/classes").toRealPath().toFile()) //
                 .build();
     }
 

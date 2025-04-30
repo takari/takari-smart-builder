@@ -13,7 +13,7 @@
   <parent>
     <groupId>io.takari</groupId>
     <artifactId>takari</artifactId>
-    <version>63</version>
+    <version>64</version>
   </parent>
   <groupId>io.takari.maven</groupId>
   <artifactId>takari-smart-builder</artifactId>
@@ -39,12 +39,11 @@
   <properties>
     <takari.licenseHeader>https://raw.githubusercontent.com/takari/takari-pom/master/license-header-asl2.txt</takari.licenseHeader>
 
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <takari.javaSourceVersion>8</takari.javaSourceVersion>
     <mavenVersion>3.9.9</mavenVersion>
     <mavenResolverVersion>1.9.22</mavenResolverVersion>
     <slf4jVersion>1.7.36</slf4jVersion>
     <pluginTestingVersion>3.0.5</pluginTestingVersion>
-    <takari.javaSourceVersion>1.8</takari.javaSourceVersion>
   </properties>
 
   <dependencies>
@@ -96,7 +95,7 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>33.3.1-jre</version>
+      <version>33.4.8-jre</version>
       <scope>test</scope>
     </dependency>
     <dependency>

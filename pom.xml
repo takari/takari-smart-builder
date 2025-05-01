@@ -41,10 +41,12 @@
     <takari.licenseHeader>https://raw.githubusercontent.com/takari/takari-pom/master/license-header-asl2.txt</takari.licenseHeader>
 
     <takari.javaSourceVersion>8</takari.javaSourceVersion>
+    <takari.lifecycleVersion>2.3.0</takari.lifecycleVersion>
+
     <mavenVersion>3.9.9</mavenVersion>
     <mavenResolverVersion>1.9.22</mavenResolverVersion>
     <slf4jVersion>1.7.36</slf4jVersion>
-    <pluginTestingVersion>3.0.5</pluginTestingVersion>
+    <pluginTestingVersion>3.1.0</pluginTestingVersion>
   </properties>
 
   <dependencies>

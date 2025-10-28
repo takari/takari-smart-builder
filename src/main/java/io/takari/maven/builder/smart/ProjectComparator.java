@@ -21,16 +21,12 @@ import org.apache.maven.project.MavenProject;
  * calculated by recursively traversing project dependency graph starting from build root projects,
  * i.e. projects that do not have any upstream dependencies.
  * <p>
- * Project build times are estimated based on values persisted during a previous build. Average
- * build time is used for projects that do not have persisted build time.
+ * All projects are assigned the same (arbitrary) build time value of 1. This means that the
+ * project with the longest downstream dependency trail will be built first.
  * <p>
- * If there are no persisted build times, all projects build times are assumed the same (arbitrary)
- * value of 1. This means that the project with the longest downstream dependency trail will be
- * built first.
- * <p>
- * Currently, historical build times are stored in
- * <code>${session.request/baseDirectory}/.mvn/timing.properties</code> file. The timings file is
- * written only if <code>${session.request/baseDirectory}/.mvn</code> directory is already present.
+ * Note: Historical build time persistence was removed as it proved less useful in practice
+ * due to incremental builds, changing build goals, and selective project builds making
+ * previous timing data unreliable for predicting future build times.
  */
 class ProjectComparator {
 

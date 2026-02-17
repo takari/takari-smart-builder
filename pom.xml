@@ -44,7 +44,7 @@
     <takari.lifecycleVersion>2.3.0</takari.lifecycleVersion>
 
     <mavenVersion>3.9.12</mavenVersion>
-    <mavenResolverVersion>1.9.25</mavenResolverVersion>
+    <mavenResolverVersion>1.9.26</mavenResolverVersion>
     <slf4jVersion>1.7.36</slf4jVersion>
     <pluginTestingVersion>3.1.1</pluginTestingVersion>
   </properties>

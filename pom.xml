@@ -13,7 +13,7 @@
   <parent>
     <groupId>io.takari</groupId>
     <artifactId>takari</artifactId>
-    <version>71</version>
+    <version>73</version>
   </parent>
   <groupId>io.takari.maven</groupId>
   <artifactId>takari-smart-builder</artifactId>
@@ -43,8 +43,8 @@
     <takari.javaSourceVersion>8</takari.javaSourceVersion>
     <takari.lifecycleVersion>2.3.0</takari.lifecycleVersion>
 
-    <mavenVersion>3.9.12</mavenVersion>
-    <mavenResolverVersion>1.9.25</mavenResolverVersion>
+    <mavenVersion>3.9.16</mavenVersion>
+    <mavenResolverVersion>1.9.27</mavenResolverVersion>
     <slf4jVersion>1.7.36</slf4jVersion>
     <pluginTestingVersion>3.1.1</pluginTestingVersion>
   </properties>
@@ -98,7 +98,7 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>33.5.0-jre</version>
+      <version>33.6.0-jre</version>
       <scope>test</scope>
     </dependency>
     <dependency>

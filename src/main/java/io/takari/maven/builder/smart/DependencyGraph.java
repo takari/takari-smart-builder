@@ -11,8 +11,10 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -264,11 +266,12 @@ public class DependencyGraph<K> {
                     return maxmax;
                 }
             }
-            long tmax = System.currentTimeMillis() + maxTimeMillis;
+            long now = System.currentTimeMillis();
+            long tmax = maxTimeMillis > Long.MAX_VALUE - now ? Long.MAX_VALUE : now + maxTimeMillis;
             int tries = 0;
             SubsetIterator iterator = new SubsetIterator(getRoots());
             while (max < maxmax && iterator.hasNext()) {
-                if (++tries % 100 == 0 && System.currentTimeMillis() < tmax) {
+                if (++tries % 100 == 0 && System.currentTimeMillis() >= tmax) {
                     return maxmax;
                 }
                 List<K> l = iterator.next();
@@ -279,7 +282,7 @@ public class DependencyGraph<K> {
 
         private class SubsetIterator implements Iterator<List<K>> {
 
-            final List<List<K>> nexts = new ArrayList<>();
+            final Deque<List<K>> nexts = new ArrayDeque<>();
             final Set<List<K>> visited = new HashSet<>();
 
             public SubsetIterator(List<K> roots) {
@@ -293,7 +296,7 @@ public class DependencyGraph<K> {
 
             @Override
             public List<K> next() {
-                List<K> list = nexts.remove(0);
+                List<K> list = nexts.removeFirst();
                 list.stream()
                         .map(node -> ensembleWithChildrenOf(list, node))
                         .filter(visited::add)

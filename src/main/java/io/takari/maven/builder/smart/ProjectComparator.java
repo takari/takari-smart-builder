@@ -31,7 +31,11 @@ import org.apache.maven.project.MavenProject;
 class ProjectComparator {
 
     public static Comparator<MavenProject> create(DependencyGraph<MavenProject> graph) {
-        return create0(graph, Collections.emptyMap(), ProjectComparator::id);
+        // ponytail: packaging is the only cost signal without history; pom modules are near-free
+        Map<String, AtomicLong> serviceTimes = new HashMap<>();
+        graph.getProjects()
+                .forEach(p -> serviceTimes.put(id(p), new AtomicLong("pom".equals(p.getPackaging()) ? 0L : 1L)));
+        return create0(graph, serviceTimes, ProjectComparator::id);
     }
 
     static <K> Comparator<K> create0(
@@ -53,7 +57,14 @@ class ProjectComparator {
 
         final Map<K, Long> projectWeights = calculateWeights(dependencyGraph, serviceTimes, rootProjects);
 
+        // tie-break: projects that (transitively) unblock more downstream work go first
+        final Map<K, Integer> downstreamCounts = new HashMap<>();
+        dependencyGraph.getProjects().forEach(project -> dependencyGraph
+                .transitiveUpstreams(project)
+                .forEach(upstream -> downstreamCounts.merge(upstream, 1, Integer::sum)));
+
         return Comparator.comparingLong((ToLongFunction<K>) projectWeights::get)
+                .thenComparingInt(k -> downstreamCounts.getOrDefault(k, 0))
                 .thenComparing(toKey, String::compareTo)
                 .reversed();
     }

@@ -46,6 +46,27 @@ public class DagWidthTest {
      *   G
      * </pre>
      */
+    private DependencyGraph<String> newLongChain() {
+        Map<String, List<String>> upstreams = new HashMap<>();
+        upstreams.put("n000", Collections.emptyList());
+        for (int i = 1; i < 200; i++) {
+            upstreams.put(String.format("n%03d", i), Collections.singletonList(String.format("n%03d", i - 1)));
+        }
+        return newGraph(upstreams);
+    }
+
+    @Test
+    public void longChainWithoutTimeLimit() {
+        // > 100 iterations; must not trip the time check (Long.MAX_VALUE budget must not overflow)
+        assertEquals(1, new DagWidth<>(newLongChain()).getMaxWidth());
+    }
+
+    @Test
+    public void longChainTimesOut() {
+        // zero budget: gives up after the first 100 iterations and returns the bound
+        assertEquals(12, new DagWidth<>(newLongChain()).getMaxWidth(12, 0));
+    }
+
     private DependencyGraph<String> newSimpleGraph() {
         return newGraph(
                 "A", Collections.emptyList(),
